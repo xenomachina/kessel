@@ -18,6 +18,8 @@
 
 package com.xenomachina.parser
 
+import com.xenomachina.common.Functor
+
 /**
  * A `Stream` represents a sequence of values. Like `Sequence`, a `Stream` is lazy, but unlike `Sequence`, earlier
  * points along the stream can be remembered, which is useful for backtracking.
@@ -25,7 +27,7 @@ package com.xenomachina.parser
  * A `Stream` always contains at least one value. An empty sequence is represented as `null`, and hence a potentially
  * empty sequence is represented as a `Stream<T>?`.
  */
-interface Stream<out T> {
+interface Stream<out T> : Functor<T> {
     /**
      * The first element of the stream.
      */
@@ -35,6 +37,13 @@ interface Stream<out T> {
      * The remaining elements, or null if there are none.
      */
     val tail: Stream<T>?
+
+    override fun <F> map(f: (T) -> F): Stream<F> = let { parent ->
+        object : Stream<F> {
+            override val head = f(parent.head)
+            override val tail by lazy { parent.tail?.map(f) }
+        }
+    }
 }
 
 operator fun <T> Stream<T>?.iterator() = let { self ->

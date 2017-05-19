@@ -19,7 +19,7 @@
 package com.xenomachina.parser
 
 import com.xenomachina.common.Either
-import java.lang.Thread.yield
+import com.xenomachina.common.Functor
 import kotlin.coroutines.experimental.buildSequence
 
 // TODO: add metadata here
@@ -27,10 +27,12 @@ data class ParseError(val message: () -> String)
 
 typealias ParseResult<R> = Either<ParseError, Stream<R>>
 
-data class PartialParse<T, out R>(
+data class PartialParse<T, out R> (
         val parse: R,
         val remaining: Stream<T>?
-)
+) : Functor<R> {
+    override fun <F> map(f: (R) -> F) = PartialParse(f(parse), remaining)
+}
 
 interface Parser<T, out R> {
     //fun parse(stream: Stream<T>?): ParseResult<T, R>
@@ -51,12 +53,14 @@ fun <T> terminal(predicate: (T) -> Boolean) = object : Parser<T, T> {
     }
 }
 
-fun <T, R> Parser<T, R>.or(otherParser: () -> Parser<T, R>) = let { thisParser ->
+fun <T, A, B> Parser<T, A>.or(that: () -> Parser<T, B>) = this.or(that, {Unit}, {Unit})
+
+fun <T, A, B, R> Parser<T, A>.or(that: () -> Parser<T, B>, transformA: (A) -> R, transformB:(B) -> R) = let { thisParser ->
     object : Parser<T, R> {
         override fun partialParse(stream: Stream<T>?) = thisParser.partialParse(stream).let { firstParse ->
             when (firstParse) {
-                is Either.Left -> otherParser().partialParse(stream) // TODO: combine errors
-                else -> firstParse
+                is Either.Left -> that().partialParse(stream).map { stream -> stream.map { partial -> partial.map(transformB) } }
+                else -> firstParse.map { stream -> stream.map { partial -> partial.map(transformA) } }
             }
         }
     }
