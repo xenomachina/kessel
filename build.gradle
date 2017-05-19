@@ -52,10 +52,12 @@ sourceCompatibility = 1.6
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "com.xenomachina:xenocom:$xenocom_version"
 
     testCompile "io.kotlintest:kotlintest:$kotlintest_version"
     // This is to ensure that kotlintest uses the correct version of
