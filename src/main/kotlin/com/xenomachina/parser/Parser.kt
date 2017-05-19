@@ -53,7 +53,7 @@ fun <T> terminal(predicate: (T) -> Boolean) = object : Parser<T, T> {
     }
 }
 
-fun <T, A, B> Parser<T, A>.or(that: () -> Parser<T, B>) = this.or(that, {Unit}, {Unit})
+fun <T, A, B> Parser<T, A>.or(that: () -> Parser<T, B>) : Parser<T, Unit> = this.or(that, {Unit}, {Unit})
 
 fun <T, A, B, R> Parser<T, A>.or(that: () -> Parser<T, B>, transformA: (A) -> R, transformB:(B) -> R) = let { thisParser ->
     object : Parser<T, R> {
@@ -66,9 +66,14 @@ fun <T, A, B, R> Parser<T, A>.or(that: () -> Parser<T, B>, transformA: (A) -> R,
     }
 }
 
-fun <T, A, B> Parser<T, A>.then(otherParser: () -> Parser<T, B>) = let { thisParser ->
-    object : Parser<T, Pair<A, B>> {
-        override fun partialParse(stream: Stream<T>?) = thisParser.partialParse(stream).let { firstParse ->
+fun <T, A, B> Parser<T, A>.then(secondParser: () -> Parser<T, B>) : Parser<T, Unit> = then(secondParser, {_, _ -> Unit})
+
+fun <T, A, B, R> Parser<T, A>.then(
+        secondParser: () -> Parser<T, B>,
+        transform: (A, B) -> R
+) : Parser<T, R> = let { firstParser ->
+    object : Parser<T, R> {
+        override fun partialParse(stream: Stream<T>?) = firstParser.partialParse(stream).let { firstParse ->
             when (firstParse) {
                 is Either.Left -> firstParse // just return that error
                 is Either.Right -> {
@@ -76,11 +81,11 @@ fun <T, A, B> Parser<T, A>.then(otherParser: () -> Parser<T, B>) = let { thisPar
                         for (partial in firstParse.value) {
                             val first = partial.parse
                             val remaining = partial.remaining
-                            val secondParse = otherParser().partialParse(remaining)
+                            val secondParse = secondParser().partialParse(remaining)
                             when (secondParse) {
                                 is Either.Left -> TODO()
                                 is Either.Right -> for (secondPartial in secondParse.value) {
-                                    yield(PartialParse(Pair(first, secondPartial.parse), secondPartial.remaining))
+                                    yield(PartialParse(transform(first, secondPartial.parse), secondPartial.remaining))
                                 }
                             }
                         }
