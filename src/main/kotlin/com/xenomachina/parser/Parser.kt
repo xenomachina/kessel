@@ -27,6 +27,13 @@ data class ParseError(val message: () -> String)
 
 typealias ParseResult<R> = Either<ParseError, Stream<R>>
 
+fun <A, B> ParseResult<A>.map2(transform: (A) -> B) : ParseResult<B> =
+    map { stream -> stream.map { a -> transform(a) } }
+
+fun <T, A, B> ParseResult<PartialParse<T, A>>.map3(transform: (A) -> B) : ParseResult<PartialParse<T, B>> =
+    map2 { it.map(transform) }
+
+
 data class PartialParse<T, out R> (
         val parse: R,
         val remaining: Stream<T>?
@@ -37,6 +44,13 @@ data class PartialParse<T, out R> (
 interface Parser<T, out R> {
     //fun parse(stream: Stream<T>?): ParseResult<T, R>
     fun partialParse(stream: Stream<T>?): ParseResult<PartialParse<T, R>>
+}
+
+fun <T, A, B> Parser<T, A>.map(transform: (A) -> B) : Parser<T, B> = let { original ->
+    object : Parser<T, B> {
+        override fun partialParse(stream: Stream<T>?): ParseResult<PartialParse<T, B>> =
+            original.partialParse(stream).map3(transform)
+    }
 }
 
 fun <T> terminal(predicate: (T) -> Boolean) = object : Parser<T, T> {
@@ -59,12 +73,27 @@ fun <T, A, B, R> Parser<T, A>.or(that: () -> Parser<T, B>, transformA: (A) -> R,
     object : Parser<T, R> {
         override fun partialParse(stream: Stream<T>?) = thisParser.partialParse(stream).let { firstParse ->
             when (firstParse) {
-                is Either.Left -> that().partialParse(stream).map { stream -> stream.map { partial -> partial.map(transformB) } }
-                else -> firstParse.map { stream -> stream.map { partial -> partial.map(transformA) } }
+                is Either.Left -> that().partialParse(stream).map3(transformB)
+                else -> firstParse.map3(transformA)
             }
         }
     }
 }
+
+fun <T, R> oneOf(parser1: Parser<T, R>, vararg parsers:() -> Parser<T, R>) : Parser<T, R> =
+    object : Parser<T, R> {
+        override fun partialParse(stream: Stream<T>?): ParseResult<PartialParse<T, R>> {
+            var parse = parser1.partialParse(stream)
+            loop@ for (parser in parsers) {
+                parse = when (parse) {
+                    is Either.Left -> parser().partialParse(stream)
+                    is Either.Right -> break@loop
+                }
+            }
+            // TODO: construct "expected one of" error if parse fails
+            return parse
+        }
+    }
 
 fun <T, A, B> Parser<T, A>.then(secondParser: () -> Parser<T, B>) : Parser<T, Unit> = then(secondParser, {_, _ -> Unit})
 
