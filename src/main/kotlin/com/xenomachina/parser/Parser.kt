@@ -20,7 +20,7 @@ package com.xenomachina.parser
 
 import com.xenomachina.common.Either
 import com.xenomachina.common.Functor
-import kotlin.coroutines.experimental.buildSequence
+import kotlin.coroutines.experimental.buildIterator
 
 // TODO: add metadata here
 data class ParseError(val message: () -> String)
@@ -67,19 +67,6 @@ fun <T> terminal(predicate: (T) -> Boolean) = object : Parser<T, T> {
     }
 }
 
-fun <T, A, B> Parser<T, A>.or(that: () -> Parser<T, B>) : Parser<T, Unit> = this.or(that, {Unit}, {Unit})
-
-fun <T, A, B, R> Parser<T, A>.or(that: () -> Parser<T, B>, transformA: (A) -> R, transformB:(B) -> R) = let { thisParser ->
-    object : Parser<T, R> {
-        override fun partialParse(stream: Stream<T>?) = thisParser.partialParse(stream).let { firstParse ->
-            when (firstParse) {
-                is Either.Left -> that().partialParse(stream).map3(transformB)
-                else -> firstParse.map3(transformA)
-            }
-        }
-    }
-}
-
 fun <T, R> oneOf(parser1: Parser<T, R>, vararg parsers:() -> Parser<T, R>) : Parser<T, R> =
     object : Parser<T, R> {
         override fun partialParse(stream: Stream<T>?): ParseResult<PartialParse<T, R>> {
@@ -95,37 +82,48 @@ fun <T, R> oneOf(parser1: Parser<T, R>, vararg parsers:() -> Parser<T, R>) : Par
         }
     }
 
-fun <T, A, B> Parser<T, A>.then(secondParser: () -> Parser<T, B>) : Parser<T, Unit> = then(secondParser, {_, _ -> Unit})
-
-fun <T, A, B, R> Parser<T, A>.then(
-        secondParser: () -> Parser<T, B>,
-        transform: (A, B) -> R
-) : Parser<T, R> = let { firstParser ->
-    object : Parser<T, R> {
-        override fun partialParse(stream: Stream<T>?) = firstParser.partialParse(stream).let { firstParse ->
-            when (firstParse) {
-                is Either.Left -> firstParse // just return that error
-                is Either.Right -> {
-                    val resultStream = buildSequence {
-                        for (partial in firstParse.value) {
-                            val first = partial.parse
-                            val remaining = partial.remaining
-                            val secondParse = secondParser().partialParse(remaining)
-                            when (secondParse) {
-                                is Either.Left -> TODO()
-                                is Either.Right -> for (secondPartial in secondParse.value) {
-                                    yield(PartialParse(transform(first, secondPartial.parse), secondPartial.remaining))
+fun <T, A, B, C, D, E, Z> sequence(
+        parserA: Parser<T, A>,
+        parserB: Parser<T, B>,
+        parserC: Parser<T, C>,
+        parserD: Parser<T, D>,
+        parserE: Parser<T, E>,
+        f: (A, B, C, D, E) -> Z
+) : Parser<T, Z> =
+    object : Parser<T, Z> {
+        override fun partialParse(stream: Stream<T>?): ParseResult<PartialParse<T, Z>> {
+            var parseError : ParseError? = null
+            val partials = buildIterator {
+                parseError = iterateParser(parserA, stream) { a, stream ->
+                    parseError = iterateParser(parserB, stream) { b, stream ->
+                        parseError = iterateParser(parserC, stream) { c, stream ->
+                            parseError = iterateParser(parserD, stream) { d, stream ->
+                                parseError = iterateParser(parserE, stream) { e, stream ->
+                                    yield(PartialParse(f(a, b, c, d, e), stream))
                                 }
                             }
                         }
-                    }.asStream()
-                    if (resultStream == null) {
-                        TODO()
-                    } else {
-                        Either.Right(resultStream)
                     }
                 }
+            }.asStream()
+            return if (partials == null) {
+                Either.Left(parseError!!)
+            } else {
+                Either.Right(partials)
             }
+
+        }
+    }
+
+private inline fun <T, A> iterateParser(parser: Parser<T, A>, stream: Stream<T>?, body: (A, Stream<T>?) -> Unit) : ParseError? {
+    val firstParse = parser.partialParse(stream)
+    when (firstParse) {
+        is Either.Left -> return firstParse.value
+        is Either.Right -> {
+            for (partial in firstParse.value) {
+                body(partial.parse, partial.remaining)
+            }
+            return null
         }
     }
 }

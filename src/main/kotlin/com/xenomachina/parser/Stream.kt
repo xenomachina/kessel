@@ -86,7 +86,7 @@ private fun <T> streamOf(head: T, tail: Array<out T>, offset: Int): Stream<T> {
  */
 fun <T> Sequence<T>.asStream(): Stream<T>? = iterator().asStream()
 
-private fun <T> Iterator<T>.asStream(): Stream<T>? {
+fun <T> Iterator<T>.asStream(): Stream<T>? {
     // TODO: if iterator comes from a Stream, just return that stream.
     return if (hasNext()) {
         object : Stream<T> {
