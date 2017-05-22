@@ -86,7 +86,7 @@ dependencies {
 task ktlint(type: JavaExec) {
     main = "com.github.shyiko.ktlint.Main"
     classpath = configurations.ktlint
-    args "src/**/*.kt"
+    args "--verbose", "src/**/*.kt"
 }
 
 check.dependsOn ktlint
