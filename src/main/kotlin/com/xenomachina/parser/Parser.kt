@@ -26,10 +26,16 @@ import com.xenomachina.stream.plus
 import com.xenomachina.stream.streamOf
 import kotlin.coroutines.experimental.SequenceBuilder
 
-// TODO: add metadata here
-// TODO: remove `consumed`?
-data class ParseError(val consumed: Int, val message: () -> String)
+/**
+ * @property message error message
+ */
+data class ParseError(val message: () -> String)
 
+/**
+ * @property consumed how many input tokens were sucessfully consumed to construct the sucessful result or before failing
+ * @property value either the parsed value, or a `ParseError` in the case of failure
+ * @property remaining the remaining stream after the parsed value, or at the point of failure
+ */
 data class PartialResult<T, out R>(
         val consumed: Int,
         val value: Either<ParseError, R>,
@@ -52,24 +58,48 @@ fun <T, A, B> Parser<T, A>.map(transform: (A) -> B) : Parser<T, B> = let { origi
     }
 }
 
-// TODO: add epsilon
-// TODO: add endOfInput
-
-fun <T> terminal(predicate: (T) -> Boolean) = object : Parser<T, T> {
-    override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, T>> =
-        when (stream) {
-            is Stream.Empty ->
-                streamOf(PartialResult<T, T>(consumed, Either.Left(ParseError(0) { "Unexpected end of input" }), stream))
-
-            is Stream.NonEmpty ->
-                if (predicate(stream.head)) {
-                    streamOf(PartialResult(consumed + 1, Either.Right(stream.head), stream.tail))
-                } else {
-                    streamOf(PartialResult(
-                            consumed, Either.Left(ParseError(0) { "Unexpected: ${stream.head}" }), stream))
-                }
-        }
+fun <T> epsilon() = object : Parser<T, Unit> {
+    override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Unit>> =
+            streamOf(PartialResult( consumed, Either.Right(Unit), stream))
 }
+fun <T> endOfInput() = object : Parser<T, Unit> {
+    override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Unit>> =
+            when (stream) {
+                is Stream.Empty ->
+                    streamOf<PartialResult<T, Unit>>(PartialResult(consumed, Either.Right(Unit), stream))
+
+                is Stream.NonEmpty<T> ->
+                    streamOf(PartialResult(
+                            consumed,
+                            Either.Left(ParseError { "Expected end of input, found: ${stream.head}" }),
+                            stream))
+            }
+}
+
+fun <T> terminal(predicate: (T) -> Boolean) =
+        object : Parser<T, T> {
+            override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, T>> =
+                    when (stream) {
+                        is Stream.Empty ->
+                            streamOf(PartialResult<T, T>(
+                                    consumed,
+                                    Either.Left(ParseError { "Unexpected end of input" }),
+                                    stream))
+
+                        is Stream.NonEmpty ->
+                            if (predicate(stream.head)) {
+                                streamOf(PartialResult(
+                                        consumed + 1,
+                                        Either.Right(stream.head),
+                                        stream.tail))
+                            } else {
+                                streamOf(PartialResult(
+                                        consumed,
+                                        Either.Left(ParseError { "Unexpected: ${stream.head}" }),
+                                        stream))
+                            }
+                    }
+        }
 
 fun <T, R> oneOf(parser1: Parser<T, R>, vararg parsers: () -> Parser<T, R>) : Parser<T, R> =
     object : Parser<T, R> {
