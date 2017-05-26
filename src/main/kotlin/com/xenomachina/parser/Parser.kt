@@ -44,12 +44,12 @@ data class PartialResult<T, out R>(
     override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
 }
 
-interface Parser<T, out R> {
-    fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, R>>
+abstract class Parser<T, out R> {
+    abstract fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, R>>
 }
 
 fun <T, A, B> Parser<T, A>.map(transform: (A) -> B) : Parser<T, B> = let { original ->
-    object : Parser<T, B> {
+    object : Parser<T, B>() {
         override fun partialParse(
                 consumed: Int,
                 stream: Stream<T>
@@ -58,11 +58,11 @@ fun <T, A, B> Parser<T, A>.map(transform: (A) -> B) : Parser<T, B> = let { origi
     }
 }
 
-fun <T> epsilon() = object : Parser<T, Unit> {
+fun <T> epsilon() = object : Parser<T, Unit>() {
     override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Unit>> =
             streamOf(PartialResult( consumed, Either.Right(Unit), stream))
 }
-fun <T> endOfInput() = object : Parser<T, Unit> {
+fun <T> endOfInput() = object : Parser<T, Unit>() {
     override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Unit>> =
             when (stream) {
                 is Stream.Empty ->
@@ -77,7 +77,7 @@ fun <T> endOfInput() = object : Parser<T, Unit> {
 }
 
 fun <T> terminal(predicate: (T) -> Boolean) =
-        object : Parser<T, T> {
+        object : Parser<T, T>() {
             override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, T>> =
                     when (stream) {
                         is Stream.Empty ->
@@ -102,7 +102,7 @@ fun <T> terminal(predicate: (T) -> Boolean) =
         }
 
 fun <T, R> oneOf(parser1: Parser<T, R>, vararg parsers: () -> Parser<T, R>) : Parser<T, R> =
-    object : Parser<T, R> {
+    object : Parser<T, R>() {
         override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, R>> {
             var result : Stream.NonEmpty<PartialResult<T, R>> = parser1.partialParse(consumed, stream)
             for (thunk in parsers) {
@@ -117,7 +117,7 @@ fun <T, A, B, Z> seq(
         parserB: Parser<T, B>,
         f: (A, B) -> Z
 ) : Parser<T, Z> =
-        object : Parser<T, Z> {
+        object : Parser<T, Z>() {
             override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Z>> =
                     // TODO: remove type params when Kotlin compiler can infer without crashing
                     buildStream<PartialResult<T, Z>> {
@@ -137,7 +137,7 @@ fun <T, A, B, C, D, E, Z> seq(
         parserE: Parser<T, E>,
         f: (A, B, C, D, E) -> Z
 ) : Parser<T, Z> =
-        object : Parser<T, Z> {
+        object : Parser<T, Z>() {
             override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Z>> =
                     // TODO: remove type params when Kotlin compiler can infer without crashing
                     buildStream<PartialResult<T, Z>> {
