@@ -26,34 +26,39 @@ internal fun <T> Sequence<T>.shouldContain(vararg expected: T) {
     toList() shouldBe expected.toList()
 }
 
-enum class Type { IDENTIFIER, INTEGER, FLOAT, SPACE }
+sealed class Token {
+    data class Identifier(override val value: String) : Token()
+    data class Integer(override val value: String) : Token()
+    data class Float(override val value: String) : Token()
+    data class Space(override val value: String) : Token()
+    abstract val value: String
+}
 
 class TokenizerTest : FunSpec({
-    data class Token(val type: Type, val value: String)
-
     test("simple") {
         val tokenizer = Tokenizer<Int, Token>(
                 CharOffsetTracker(),
-                Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> Token(Type.IDENTIFIER, m.group()) },
-                Regex("\\d+") to { m -> Token(Type.INTEGER, m.group()) },
-                Regex("\\d*\\.\\d") to { m -> Token(Type.FLOAT, m.group()) },
-                Regex("\\s+") to { m -> Token(Type.SPACE, m.group()) })
+                Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> Token.Identifier(m.group()) },
+                Regex("\\d+") to { m -> Token.Integer(m.group()) },
+                Regex("\\d*\\.\\d") to { m -> Token.Float(m.group()) },
+                Regex("\\s+") to { m -> Token.Space(m.group()) })
+
         tokenizer.tokenize("foo bar 123 baz789 45.6 45 .6 hello").shouldContain(
-                Positioned(0, Token(Type.IDENTIFIER, "foo"), 3),
-                Positioned(3, Token(Type.SPACE, " "), 4),
-                Positioned(4, Token(Type.IDENTIFIER, "bar"), 7),
-                Positioned(7, Token(Type.SPACE, " "), 8),
-                Positioned(8, Token(Type.INTEGER, "123"), 11),
-                Positioned(11, Token(Type.SPACE, " "), 12),
-                Positioned(12, Token(Type.IDENTIFIER, "baz789"), 18),
-                Positioned(18, Token(Type.SPACE, " "), 19),
-                Positioned(19, Token(Type.FLOAT, "45.6"), 23),
-                Positioned(23, Token(Type.SPACE, " "), 24),
-                Positioned(24, Token(Type.INTEGER, "45"), 26),
-                Positioned(26, Token(Type.SPACE, " "), 27),
-                Positioned(27, Token(Type.FLOAT, ".6"), 29),
-                Positioned(29, Token(Type.SPACE, " "), 30),
-                Positioned(30, Token(Type.IDENTIFIER, "hello"), 35)
+                Positioned(0, Token.Identifier("foo"), 3),
+                Positioned(3, Token.Space(" "), 4),
+                Positioned(4, Token.Identifier("bar"), 7),
+                Positioned(7, Token.Space(" "), 8),
+                Positioned(8, Token.Integer("123"), 11),
+                Positioned(11, Token.Space(" "), 12),
+                Positioned(12, Token.Identifier("baz789"), 18),
+                Positioned(18, Token.Space(" "), 19),
+                Positioned(19, Token.Float("45.6"), 23),
+                Positioned(23, Token.Space(" "), 24),
+                Positioned(24, Token.Integer("45"), 26),
+                Positioned(26, Token.Space(" "), 27),
+                Positioned(27, Token.Float(".6"), 29),
+                Positioned(29, Token.Space(" "), 30),
+                Positioned(30, Token.Identifier("hello"), 35)
         )
     }
 })
