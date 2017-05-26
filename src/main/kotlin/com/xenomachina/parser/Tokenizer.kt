@@ -30,6 +30,9 @@ typealias TokenConstructor<T> = (MatchResult) -> T
 /**
  * A Tokenizer converts a [CharSequence] into a [Sequence] of tokens. It acts
  * as a mapping from [Regex] objects to [TokenConstructor] objects.
+ *
+ * A Tokenizer is stateless and renetrant. It is safe to reuse a Tokenizer or even use a single Tokenizer on multiple
+ * sequences concurrently.
  */
 class Tokenizer<P, T>(
        private val posTracker: PositionTracker<P>,

@@ -76,6 +76,11 @@ fun <T> endOfInput() = object : Parser<T, Unit>() {
             }
 }
 
+inline fun <T, reified S : T> isA() : Parser<T, S> {
+    val javaClass = S::class.java
+    return terminal<T> { javaClass.isInstance(it) }.map { javaClass.cast(it) }
+}
+
 fun <T> terminal(predicate: (T) -> Boolean) =
         object : Parser<T, T>() {
             override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, T>> =
