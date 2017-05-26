@@ -21,145 +21,85 @@ package com.xenomachina.parser
 import com.xenomachina.common.Either
 import com.xenomachina.common.Functor
 import com.xenomachina.stream.Stream
-import com.xenomachina.stream.asStream
+import com.xenomachina.stream.buildStream
+import com.xenomachina.stream.plus
 import com.xenomachina.stream.streamOf
-import kotlin.coroutines.experimental.buildIterator
+import kotlin.coroutines.experimental.SequenceBuilder
 
 // TODO: add metadata here
-data class ParseError(val message: () -> String)
+// TODO: remove `consumed`?
+data class ParseError(val consumed: Int, val message: () -> String)
 
-typealias ParseResult<R> = Either<ParseError, Stream.NonEmpty<R>>
-
-fun <A, B> ParseResult<A>.map2(transform: (A) -> B) : ParseResult<B> =
-    map { stream -> stream.map { a -> transform(a) } }
-
-fun <T, A, B> ParseResult<PartialParse<T, A>>.map3(transform: (A) -> B) : ParseResult<PartialParse<T, B>> =
-    map2 { it.map(transform) }
-
-data class PartialParse<T, out R> (
-        val parse: R,
+data class PartialResult<T, out R>(
+        val consumed: Int,
+        val value: Either<ParseError, R>,
         val remaining: Stream<T>
 ) : Functor<R> {
-    override fun <F> map(f: (R) -> F) = PartialParse(f(parse), remaining)
+    override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
 }
 
 interface Parser<T, out R> {
-    //fun parse(stream: Stream<T>): ParseResult<T, R>
-    fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, R>>
+    fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, R>>
 }
 
 fun <T, A, B> Parser<T, A>.map(transform: (A) -> B) : Parser<T, B> = let { original ->
     object : Parser<T, B> {
-        override fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, B>> =
-            original.partialParse(stream).map3(transform)
+        override fun partialParse(
+                consumed: Int,
+                stream: Stream<T>
+        ): Stream.NonEmpty<PartialResult<T, B>> =
+            original.partialParse(consumed, stream).map { it.map(transform) }
     }
 }
 
+// TODO: add epsilon
+// TODO: add endOfInput
+
 fun <T> terminal(predicate: (T) -> Boolean) = object : Parser<T, T> {
-    override fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, T>> =
+    override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, T>> =
         when (stream) {
             is Stream.Empty ->
-                Either.Left(ParseError { "Unexpected end of input" })
+                streamOf(PartialResult<T, T>(consumed, Either.Left(ParseError(0) { "Unexpected end of input" }), stream))
 
             is Stream.NonEmpty ->
                 if (predicate(stream.head)) {
-                    Either.Right(streamOf(PartialParse(stream.head, stream.tail)))
+                    streamOf(PartialResult(consumed + 1, Either.Right(stream.head), stream.tail))
                 } else {
-                    Either.Left(ParseError { "Unexpected: ${stream.head}" })
+                    streamOf(PartialResult(
+                            consumed, Either.Left(ParseError(0) { "Unexpected: ${stream.head}" }), stream))
                 }
         }
 }
 
 fun <T, R> oneOf(parser1: Parser<T, R>, vararg parsers: () -> Parser<T, R>) : Parser<T, R> =
     object : Parser<T, R> {
-        override fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, R>> {
-            var parse = parser1.partialParse(stream)
-            loop@ for (parser in parsers) {
-                parse = when (parse) {
-                    is Either.Left -> parser().partialParse(stream)
-                    is Either.Right -> break@loop
-                }
+        override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, R>> {
+            var result : Stream.NonEmpty<PartialResult<T, R>> = parser1.partialParse(consumed, stream)
+            for (thunk in parsers) {
+                result = result + { thunk().partialParse(consumed, stream) }
             }
-            // TODO: construct "expected one of" error if parse fails
-            return parse
+            return result
         }
     }
 
-fun <T, A, B, Z> sequence(
+fun <T, A, B, Z> seq(
         parserA: Parser<T, A>,
         parserB: Parser<T, B>,
         f: (A, B) -> Z
 ) : Parser<T, Z> =
         object : Parser<T, Z> {
-            override fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, Z>> {
-                var parseError : ParseError? = null
-                val partials = buildIterator {
-                    parseError = iterateParser(parserA, stream) { a, stream ->
-                        parseError = iterateParser(parserB, stream) { b, stream ->
-                            yield(PartialParse(f(a, b), stream))
-                        }
-                    }
-                }.asStream()
-                return when (partials) {
-                    is Stream.Empty -> Either.Left(parseError!!)
-                    is Stream.NonEmpty-> Either.Right(partials)
-                }
-            }
-        }
-
-fun <T, A, B, C, Z> sequence(
-        parserA: Parser<T, A>,
-        parserB: Parser<T, B>,
-        parserC: Parser<T, C>,
-        f: (A, B, C) -> Z
-) : Parser<T, Z> =
-        object : Parser<T, Z> {
-            override fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, Z>> {
-                var parseError : ParseError? = null
-                val partials = buildIterator {
-                    parseError = iterateParser(parserA, stream) { a, stream ->
-                        parseError = iterateParser(parserB, stream) { b, stream ->
-                            parseError = iterateParser(parserC, stream) { c, stream ->
-                                yield(PartialParse(f(a, b, c), stream))
+            override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Z>> =
+                    // TODO: remove type params when Kotlin compiler can infer without crashing
+                    buildStream<PartialResult<T, Z>> {
+                        forParser(parserA, consumed, stream) { consumed, a, remaining ->
+                            forParser(parserB, consumed, remaining) { consumed, b, remaining ->
+                                yield(PartialResult(consumed, Either.Right(f(a, b)), remaining))
                             }
                         }
-                    }
-                }.asStream()
-                return when (partials) {
-                    is Stream.Empty -> Either.Left(parseError!!)
-                    is Stream.NonEmpty-> Either.Right(partials)
-                }
-            }
-        }
-fun <T, A, B, C, D, Z> sequence(
-        parserA: Parser<T, A>,
-        parserB: Parser<T, B>,
-        parserC: Parser<T, C>,
-        parserD: Parser<T, D>,
-        f: (A, B, C, D) -> Z
-) : Parser<T, Z> =
-        object : Parser<T, Z> {
-            override fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, Z>> {
-                var parseError : ParseError? = null
-                val partials = buildIterator {
-                    parseError = iterateParser(parserA, stream) { a, stream ->
-                        parseError = iterateParser(parserB, stream) { b, stream ->
-                            parseError = iterateParser(parserC, stream) { c, stream ->
-                                parseError = iterateParser(parserD, stream) { d, stream ->
-                                    yield(PartialParse(f(a, b, c, d), stream))
-                                }
-                            }
-                        }
-                    }
-                }.asStream()
-                return when (partials) {
-                    is Stream.Empty -> Either.Left(parseError!!)
-                    is Stream.NonEmpty-> Either.Right(partials)
-                }
-            }
+                    } as Stream.NonEmpty<PartialResult<T, Z>>
         }
 
-fun <T, A, B, C, D, E, Z> sequence(
+fun <T, A, B, C, D, E, Z> seq(
         parserA: Parser<T, A>,
         parserB: Parser<T, B>,
         parserC: Parser<T, C>,
@@ -167,38 +107,36 @@ fun <T, A, B, C, D, E, Z> sequence(
         parserE: Parser<T, E>,
         f: (A, B, C, D, E) -> Z
 ) : Parser<T, Z> =
-    object : Parser<T, Z> {
-        override fun partialParse(stream: Stream<T>): ParseResult<PartialParse<T, Z>> {
-            var parseError : ParseError? = null
-            val partials = buildIterator {
-                parseError = iterateParser(parserA, stream) { a, stream ->
-                    parseError = iterateParser(parserB, stream) { b, stream ->
-                        parseError = iterateParser(parserC, stream) { c, stream ->
-                            parseError = iterateParser(parserD, stream) { d, stream ->
-                                parseError = iterateParser(parserE, stream) { e, stream ->
-                                    yield(PartialParse(f(a, b, c, d, e), stream))
+        object : Parser<T, Z> {
+            override fun partialParse(consumed: Int, stream: Stream<T>): Stream.NonEmpty<PartialResult<T, Z>> =
+                    // TODO: remove type params when Kotlin compiler can infer without crashing
+                    buildStream<PartialResult<T, Z>> {
+                        forParser(parserA, consumed, stream) { consumed, a, remaining ->
+                            forParser(parserB, consumed, remaining) { consumed, b, remaining ->
+                                forParser(parserC, consumed, remaining) { consumed, c, remaining ->
+                                    forParser(parserD, consumed, remaining) { consumed, d, remaining ->
+                                        forParser(parserE, consumed, remaining) { consumed, e, remaining ->
+                                            yield(PartialResult(consumed, Either.Right(f(a, b, c, d, e)), remaining))
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                }
-            }.asStream()
-            return when (partials) {
-                is Stream.Empty -> Either.Left(parseError!!)
-                is Stream.NonEmpty-> Either.Right(partials)
-            }
+                    } as Stream.NonEmpty<PartialResult<T, Z>>
         }
-    }
 
-private inline fun <T, A> iterateParser(parser: Parser<T, A>, stream: Stream<T>, body: (A, Stream<T>) -> Unit) : ParseError? {
-    val firstParse = parser.partialParse(stream)
-    when (firstParse) {
-        is Either.Left -> return firstParse.left
-        is Either.Right -> {
-            for (partial in firstParse.right) {
-                body(partial.parse, partial.remaining)
-            }
-            return null
+private inline suspend fun <T, R, Z> SequenceBuilder<PartialResult<T, Z>>.forParser(
+        parser: Parser<T, R>,
+        consumed: Int,
+        remaining: Stream<T>,
+        body: (consumed: Int, value: R, remaining: Stream<T>) -> Unit
+) {
+    for (partialResult in parser.partialParse(consumed, remaining)) {
+        when (partialResult.value) {
+            is Either.Left ->
+                // TODO: use unchecked cast? (object should be identical)
+                yield(PartialResult(partialResult.consumed, partialResult.value, partialResult.remaining))
+            is Either.Right -> body(consumed, partialResult.value.right, remaining)
         }
     }
 }
