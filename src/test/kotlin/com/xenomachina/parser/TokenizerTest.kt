@@ -31,7 +31,8 @@ sealed class TestToken {
     data class Integer(override val value: String) : TestToken()
     data class Float(override val value: String) : TestToken()
     data class Space(override val value: String) : TestToken()
-    data class Operator(override val value: String) : TestToken()
+    data class MultOp(override val value: String) : TestToken()
+    data class AddOp(override val value: String) : TestToken()
     data class OpenParen(override val value: String) : TestToken()
     data class CloseParen(override val value: String) : TestToken()
     abstract val value: String
@@ -43,7 +44,8 @@ val TEST_TOKENIZER = Tokenizer<Int, TestToken>(
         Regex("\\d+") to { m -> TestToken.Integer(m.group()) },
         Regex("\\d*\\.\\d") to { m -> TestToken.Float(m.group()) },
         Regex("\\s+") to { m -> TestToken.Space(m.group()) },
-        Regex("[-+*/]") to { m -> TestToken.Operator(m.group()) },
+        Regex("[*/]") to { m -> TestToken.MultOp(m.group()) },
+        Regex("[-+]") to { m -> TestToken.AddOp(m.group()) },
         Regex("\\(") to { m -> TestToken.OpenParen(m.group()) },
         Regex("\\)") to { m -> TestToken.CloseParen(m.group()) }
 )
