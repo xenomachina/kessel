@@ -30,7 +30,8 @@ import kotlin.reflect.KClass
 /**
  * @property message error message
  */
-class ParseError(message: () -> String) {
+class ParseError(val consumed: Int, val element: Any?, message: () -> String) {
+    // TODO: remove `Any` from here.
     val message by lazy { message() }
 
     override fun equals(other: Any?): Boolean {
@@ -47,7 +48,7 @@ class ParseError(message: () -> String) {
     }
 
     override fun toString(): String {
-        return "ParseError(\"$message\")"
+        return "ParseError(\"$message\" @ $consumed :: <$element>)"
     }
 }
 
@@ -65,6 +66,12 @@ data class PartialResult<out T, out R>(
     override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
 }
 
+val <T> Stream<T>.headOrNull
+    get() = when (this) {
+        is Stream.NonEmpty -> head
+        is Stream.Empty -> null
+    }
+
 abstract class Parser<in T, out R>(val typeName: String) {
 
     abstract internal fun <Q : T> partialParse(
@@ -80,7 +87,7 @@ abstract class Parser<in T, out R>(val typeName: String) {
             stream: Stream<Q>
     ): Stream.NonEmpty<PartialResult<Q, R>> {
         if (breadcrumbs.get(this) == consumed) {
-            return streamOf(PartialResult(consumed, Either.Left(ParseError { "Cycle detected" }), stream))
+            return streamOf(PartialResult(consumed, Either.Left(ParseError(consumed, stream.headOrNull) { "Cycle detected" }), stream))
         } else {
             return partialParse(consumed, IdentityHashMap(breadcrumbs).apply { put(this@Parser, consumed) }, stream)
         }
@@ -89,16 +96,24 @@ abstract class Parser<in T, out R>(val typeName: String) {
     fun parse(stream: Stream<T>): Either<List<ParseError>, R> {
         val breadcrumbs = IdentityHashMap<Parser<*, *>, Int>()
         val errors = mutableListOf<ParseError>()
+        var bestConsumed = 0
         for (partial in call(0, breadcrumbs, stream)) {
             when (partial.value) {
-                is Either.Left -> errors.add(partial.value.left)
+                is Either.Left -> {
+                    if (partial.consumed > bestConsumed) {
+                        bestConsumed = partial.consumed
+                        errors.clear()
+                    }
+                    if (partial.consumed == bestConsumed) {
+                        errors.add(partial.value.left)
+                    }
+                }
                 is Either.Right -> return Either.Right(partial.value.right)
             }
         }
         return Either.Left(errors)
     }
 }
-
 
 fun <T, A, B> Parser<T, A>.map(transform: (A) -> B) : Parser<T, B> = let { original ->
     object : Parser<T, B>("map") {
@@ -134,7 +149,7 @@ fun <T> endOfInput() = object : Parser<T, Unit>("endOfInput") {
                 is Stream.NonEmpty<T> ->
                     streamOf(PartialResult(
                             consumed,
-                            Either.Left(ParseError { "Expected end of input, found: ${stream.head}" }),
+                            Either.Left(ParseError(consumed, stream.headOrNull) { "Expected end of input, found: ${stream.head}" }),
                             stream))
             }
 }
@@ -147,7 +162,7 @@ fun <T : Any> isA(kclass: KClass<T>) : Parser<Any, T> {
 fun <T> terminal(predicate: (T) -> Boolean) =
         object : Parser<T, T>("terminal") {
             override fun <Q : T> partialParse(
-                    consumed: Int, 
+                    consumed: Int,
                     breadcrumbs: Map<Parser<*, *>, Int>,
                     stream: Stream<Q>
             ): Stream.NonEmpty<PartialResult<Q, T>> =
@@ -155,7 +170,7 @@ fun <T> terminal(predicate: (T) -> Boolean) =
                         is Stream.Empty ->
                             streamOf(PartialResult<Q, T>(
                                     consumed,
-                                    Either.Left(ParseError { "Unexpected end of input" }),
+                                    Either.Left(ParseError(consumed, stream.headOrNull) { "Unexpected end of input" }),
                                     stream))
 
                         is Stream.NonEmpty ->
@@ -167,7 +182,7 @@ fun <T> terminal(predicate: (T) -> Boolean) =
                             } else {
                                 streamOf(PartialResult(
                                         consumed,
-                                        Either.Left(ParseError { "Unexpected: ${stream.head}" }),
+                                        Either.Left(ParseError(consumed, stream.headOrNull) { "Unexpected: ${stream.head}" }),
                                         stream))
                             }
                     }
@@ -182,7 +197,7 @@ fun <T, R> L(inner: () -> Parser<T, R>) : Parser<T, R> =
         object : Parser<T, R>("LAZY") {
             val inner by lazy(inner)
             override fun <Q : T> partialParse(
-                    consumed: Int, 
+                    consumed: Int,
                     breadcrumbs: Map<Parser<*, *>, Int>,
                     stream: Stream<Q>
             ): Stream.NonEmpty<PartialResult<Q, R>> =
@@ -192,7 +207,7 @@ fun <T, R> L(inner: () -> Parser<T, R>) : Parser<T, R> =
 fun <T, R> oneOf(parser1: Parser<T, R>, vararg parsers: Parser<T, R>) : Parser<T, R> =
     object : Parser<T, R>("oneOf") {
         override fun <Q : T> partialParse(
-                consumed: Int, 
+                consumed: Int,
                 breadcrumbs: Map<Parser<*, *>, Int>,
                 stream: Stream<Q>
         ): Stream.NonEmpty<PartialResult<Q, R>> {
@@ -223,7 +238,7 @@ fun <T, A, B, Z> seq(
                                     // TODO: use unchecked cast? (object should be identical)
                                     yield(PartialResult(partialA.consumed, partialA.value, partialA.remaining))
                                 is Either.Right -> // body(consumed, partialResult.value.right, remaining)
-                                    for (partialB in parserB.call(consumed, breadcrumbs, partialA.remaining)) {
+                                    for (partialB in parserB.call(partialA.consumed, breadcrumbs, partialA.remaining)) {
                                         when (partialB.value) {
                                             is Either.Left ->
                                                 // TODO: use unchecked cast? (object should be identical)

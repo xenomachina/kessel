@@ -19,6 +19,7 @@
 package com.xenomachina.parser
 
 import com.xenomachina.common.Either
+import com.xenomachina.stream.Stream
 import com.xenomachina.stream.asStream
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.specs.FunSpec
@@ -32,12 +33,9 @@ sealed class Expr {
     data class Leaf(val value: TestToken) : Expr()
 }
 
-fun <L, R> Either<L, R>.getRight() : R {
-    when (this) {
-        is Either.Left -> throw AssertionError("Expected Right, got $this")
-        is Either.Right -> return this.right
-    }
-}
+fun <L, R> Either<L, R>.assertRight() : R = (this as Either.Right<R>).right
+fun <L, R> Either<L, R>.assertLeft() : L = (this as Either.Left<L>).left
+fun <T> Stream<T>.assertHead() : T = (this as Stream.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
     test("simple") {
@@ -45,8 +43,8 @@ class ParserTest : FunSpec({
 
         parser.parse(tokenStream("5")) shouldEqual Either.Right(5)
 
-        parser.parse(tokenStream("hello")) shouldEqual
-                Either.Left(listOf(ParseError { "Unexpected: Identifier(value=hello)" }))
+        parser.parse(tokenStream("hello")).assertLeft().first().message
+                .shouldEqual("Unexpected: Identifier(value=hello)")
     }
 
     test("expression") {
@@ -67,16 +65,64 @@ class ParserTest : FunSpec({
 
             val term : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
                     factor,
-                    seq(L { term }, multOp, L { factor }) { l, op, r -> Expr.Op(l, op, r) }
+                    seq(L { factor }, multOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
             ) }
 
             val expression : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
                     term,
-                    seq(L { expression }, addOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
+                    seq(L { term }, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
             ) }
         }
         val parser = seq(parseTree.expression, endOfInput()) { expr, _ -> expr }
-        val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))"))
-        // TODO: ast.getRight().javaClass shouldEqual Expr.Op::class
+        val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
+        ast as Expr.Op
+        ast.op as TestToken.AddOp
+        ast.op.value shouldEqual "-"
+
+        // 5 * (3 + 7)
+        ast.left as Expr.Op
+        ast.left.op as TestToken.MultOp
+        ast.left.op.value shouldEqual "*"
+
+        // 5
+        ast.left.left as Expr.Leaf
+        ast.left.left.value as TestToken.Integer
+        ast.left.left.value.value shouldEqual "5"
+
+        // (3 + 7)
+        ast.left.right as Expr.Op
+        ast.left.right.op as TestToken.AddOp
+        ast.left.right.op.value shouldEqual "+"
     }
+
+//    test("left_recursion") {
+//        val parseTree = object {
+//            val multOp = isA(TestToken.MultOp::class)
+//
+//            val addOp = isA(TestToken.AddOp::class)
+//
+//            val factor : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+//                    isA(TestToken.Integer::class).map(Expr::Leaf),
+//                    isA(TestToken.Identifier::class).map(Expr::Leaf),
+//                    seq(
+//                            isA(TestToken.OpenParen::class),
+//                            L { expression },
+//                            isA(TestToken.CloseParen::class)
+//                    ) { _, expr, _ -> expr }
+//            ) }
+//
+//            val term : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+//                    factor,
+//                    seq(L { term }, multOp, L { factor }) { l, op, r -> Expr.Op(l, op, r) }
+//            ) }
+//
+//            val expression : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+//                    term,
+//                    seq(L { expression }, addOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
+//            ) }
+//        }
+//        val parser = seq(parseTree.expression, endOfInput()) { expr, _ -> expr }
+//        val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))"))
+//        ast.assertRight().javaClass shouldEqual Expr.Op::class
+//    }
 })
