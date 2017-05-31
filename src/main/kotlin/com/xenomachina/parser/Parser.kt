@@ -20,6 +20,7 @@ package com.xenomachina.parser
 
 import com.xenomachina.common.Either
 import com.xenomachina.common.Functor
+import com.xenomachina.common.Maybe
 import com.xenomachina.stream.Stream
 import com.xenomachina.stream.buildStream
 import com.xenomachina.stream.plus
@@ -30,25 +31,31 @@ import kotlin.reflect.KClass
 /**
  * @property message error message
  */
-class ParseError(val consumed: Int, val element: Any?, message: () -> String) {
-    // TODO: remove `Any` from here.
+class ParseError<out T>(val consumed: Int, val element: Maybe<T>, message: () -> String) {
     val message by lazy { message() }
+
+    override fun toString(): String {
+        return "ParseError(\"$message\" @ $consumed :: <$element>)"
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other?.javaClass != javaClass) return false
-        other as ParseError
+
+        other as ParseError<*>
+
+        if (consumed != other.consumed) return false
+        if (element != other.element) return false
         if (message != other.message) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        return message.hashCode()
-    }
-
-    override fun toString(): String {
-        return "ParseError(\"$message\" @ $consumed :: <$element>)"
+        var result = consumed
+        result = 31 * result + element.hashCode()
+        result = 47 * result + message.hashCode()
+        return result
     }
 }
 
@@ -60,16 +67,16 @@ class ParseError(val consumed: Int, val element: Any?, message: () -> String) {
  */
 data class PartialResult<out T, out R>(
         val consumed: Int,
-        val value: Either<ParseError, R>,
+        val value: Either<ParseError<T>, R>,
         val remaining: Stream<T>
 ) : Functor<R> {
     override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
 }
 
-val <T> Stream<T>.headOrNull
+val <T> Stream<T>.maybeHead
     get() = when (this) {
-        is Stream.NonEmpty -> head
-        is Stream.Empty -> null
+        is Stream.NonEmpty -> Maybe.Just(head)
+        is Stream.Empty -> Maybe.NOTHING
     }
 
 abstract class Parser<in T, out R>(val typeName: String) {
@@ -87,15 +94,15 @@ abstract class Parser<in T, out R>(val typeName: String) {
             stream: Stream<Q>
     ): Stream.NonEmpty<PartialResult<Q, R>> {
         if (breadcrumbs.get(this) == consumed) {
-            return streamOf(PartialResult(consumed, Either.Left(ParseError(consumed, stream.headOrNull) { "Cycle detected" }), stream))
+            return streamOf(PartialResult(consumed, Either.Left(ParseError(consumed, stream.maybeHead) { "Cycle detected" }), stream))
         } else {
             return partialParse(consumed, IdentityHashMap(breadcrumbs).apply { put(this@Parser, consumed) }, stream)
         }
     }
 
-    fun parse(stream: Stream<T>): Either<List<ParseError>, R> {
+    fun <Q : T> parse(stream: Stream<Q>): Either<List<ParseError<Q>>, R> {
         val breadcrumbs = IdentityHashMap<Parser<*, *>, Int>()
-        val errors = mutableListOf<ParseError>()
+        val errors = mutableListOf<ParseError<Q>>()
         var bestConsumed = 0
         for (partial in call(0, breadcrumbs, stream)) {
             when (partial.value) {
@@ -149,7 +156,7 @@ fun <T> endOfInput() = object : Parser<T, Unit>("endOfInput") {
                 is Stream.NonEmpty<T> ->
                     streamOf(PartialResult(
                             consumed,
-                            Either.Left(ParseError(consumed, stream.headOrNull) { "Expected end of input, found: ${stream.head}" }),
+                            Either.Left(ParseError(consumed, stream.maybeHead) { "Expected end of input, found: ${stream.head}" }),
                             stream))
             }
 }
@@ -170,7 +177,7 @@ fun <T> terminal(predicate: (T) -> Boolean) =
                         is Stream.Empty ->
                             streamOf(PartialResult<Q, T>(
                                     consumed,
-                                    Either.Left(ParseError(consumed, stream.headOrNull) { "Unexpected end of input" }),
+                                    Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected end of input" }),
                                     stream))
 
                         is Stream.NonEmpty ->
@@ -182,7 +189,7 @@ fun <T> terminal(predicate: (T) -> Boolean) =
                             } else {
                                 streamOf(PartialResult(
                                         consumed,
-                                        Either.Left(ParseError(consumed, stream.headOrNull) { "Unexpected: ${stream.head}" }),
+                                        Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected: ${stream.head}" }),
                                         stream))
                             }
                     }
