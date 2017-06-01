@@ -1,0 +1,141 @@
+// TODO:
+// 1. Go through this and clean up. subscript and superscript are missing in
+//    many places, and ε characters mysteriously got removed in many places.
+// 2. Convert to Kotlin.
+// This should be done after API is finalized.
+
+    firstT(A) = {t ∈ T|∃α(A ∗⇒tα)}
+    followT(A) = {t ∈ T | ∃α, β(S ∗⇒αAtβ)}
+
+// If A is nullable we define (A is nullable if A ∗⇒ ε)
+
+    first(A) = firstT(A) ∪ {ε}
+    follow(A) = followT(A) ∪ {$}
+
+// Otherwise we define
+
+    first(A) = firstT(A)
+    follow(A) = followT(A)
+
+// next:
+
+    test(x, A, α) {
+        if (x ∈ first(α)) or (ε ∈ first(α) and x ∈ follow(A)) { return true }
+        else { return false }
+    }
+
+    add(L, u, j) {
+        if ((L, u) ∉ U_j { insert (L, u) to U_j, insert (L, u, j) to R}
+    }
+
+    pop(u, j) {
+        if (u ≠ u_0) {
+            insert (u, j) to P
+            for each child v of u { add(Lu, v, j) }
+        }
+    }
+
+    // L: Label
+    // u: GssNode (= Pair<Label, Int>)
+    // j: Int
+    create(L, u, j) {
+        if there is not already a GSS node labelled L^j create one
+        let v be the GSS node labelled L^j
+        if there is not an edge from v to u {
+            create an edge from v to u
+            for all ((v, k) ∈ P) { add(L, u, k) }
+        }
+        return v
+    }
+
+// For a terminal a we define
+
+    code3(aα, j, X) = if(I[j] = a) { j := j + 1 } else { goto L0 }
+
+// For a nonterminal instance Ak we define
+
+    code3(Akα, j, X) =
+        if(test(I[j], X, Akα) { cu := create(RAk , cu, j), goto LA } else { goto L0 }
+        RAk :
+
+
+// For each production A ::= αk we define codeT2(A ::= αk, j) as follows.
+// Let αk = x1x2 ...xf , where each xp, 1 ≤ p ≤ f, is either a terminal or a
+// nonterminal instance of the form Xl.
+
+    If f = 0 then αk = ε and
+
+        codeT2(A ::= ε, j) = pop(cu, j), goto L0
+
+    If x1 is a terminal then
+
+        codeT2(A ::= αk, j) =
+            j := j + 1
+            code3(x2 ... xf , j, A)
+            code3(x3 ... xf , j, A)
+            ...
+            code3(xf , j, A)
+            pop(cu, j), goto L0
+
+    If x1 is a nonterminal instance Xl then
+
+        codeT2(A ::= αk, j) =
+            cu := create(RXl , cu, j), goto LX
+
+        RXl :
+            code3(x2 ... xf , j, A)
+            code3(x3 ... xf , j, A)
+            ...
+            code3(xf , j, A)
+            pop(cu, j), goto L0
+
+
+// If A is an LL(1) nonterminal then
+
+    code2(A, j) =
+        if(test(I[j], A, α1)) { goto LA1 }
+        ...
+        else if(test(I[j], A, αt)) { goto LAt }
+
+        LA1 : codeT2(A ::= α1, j)
+        ...
+        LAt : codeT2(A ::= αt, j)
+
+// If A is not an LL(1) nonterminal then
+
+    code2(A, j) =
+        if(test(I[j], A, α1)) { add(LA1, cu, j) }
+        ...
+        if(test(I[j], A, αt)) { add(LAt , cu, j) }
+        goto L0
+        LA1 : codeT2(A ::= α1, j)
+        ...
+        LAt : codeT2(A ::= αt, j)
+
+    m is a constant integer whose value is the length of the input
+    I is a constant integer array of size m + 1
+    i is an integer variable
+    GSS is a digraph whose nodes are labelled with elements of the form L^j
+    c_u is a GSS node variable
+    P is a set of GSS node and integer pairs
+    R is a set of descriptors
+        a descriptor is a label, GSS node, index
+
+    read the input into I and set I[m] := $, i := 0
+    create GSS nodes u_1 = L00, u0 = $ and an edge (u0, u1)cu := u1, i := 0
+
+    for 0 ≤ j ≤ m { U_j := ∅}
+    R := ∅, P := ∅
+    if(I[0] ∈ first(S$)) { goto LS } else { report failure }
+
+L0: if R ≠ ∅ {
+        remove a descriptor, (L, u, j) say, from R
+        cu := u, i := j, goto L
+    } else if ((L0, u0, m) ∈ Um) {
+        report success
+    } else {
+        report failure
+    }
+LA: code2(A, i)
+    ...
+LX: code2(X, i)

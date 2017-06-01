@@ -94,7 +94,7 @@ abstract class Parser<in T, out R>(val typeName: String) {
             stream: Stream<Q>
     ): Stream.NonEmpty<PartialResult<Q, R>> {
         if (breadcrumbs.get(this) == consumed) {
-            return streamOf(PartialResult(consumed, Either.Left(ParseError(consumed, stream.maybeHead) { "Cycle detected" }), stream))
+            throw IllegalStateException("Left recursion detected")
         } else {
             return partialParse(consumed, IdentityHashMap(breadcrumbs).apply { put(this@Parser, consumed) }, stream)
         }

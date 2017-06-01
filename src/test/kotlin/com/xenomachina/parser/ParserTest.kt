@@ -22,6 +22,7 @@ import com.xenomachina.common.Either
 import com.xenomachina.stream.Stream
 import com.xenomachina.stream.asStream
 import io.kotlintest.matchers.shouldEqual
+import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FunSpec
 
 private fun tokenStream(s: String) = TEST_TOKENIZER.tokenize(s)
@@ -95,6 +96,26 @@ class ParserTest : FunSpec({
         ast.left.right.op.value shouldEqual "+"
     }
 
+    test("simple left recursion") {
+        val parseTree = object {
+            val addOp = isA(TestToken.AddOp::class)
+            val number = isA(TestToken.Integer::class).map(Expr::Leaf)
+
+            val expression : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+                    number,
+                    seq(L { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
+            ) }
+        }
+        val parser = seq(parseTree.expression, endOfInput()) { expr, _ -> expr }
+        shouldThrow<IllegalStateException> {
+            parser.parse(tokenStream("1 + 2 + 3 + 4"))
+        }.run {
+            // Left-recursion is not currently supported.
+            message shouldEqual "Left recursion detected"
+        }
+    }
+
+    // TODO: support left recursion, and re-enable this test
 //    test("left_recursion") {
 //        val parseTree = object {
 //            val multOp = isA(TestToken.MultOp::class)
