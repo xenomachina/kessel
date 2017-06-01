@@ -57,8 +57,7 @@ class ParserTest : FunSpec({
 
                 val addOp = isA(TestToken.AddOp::class)
 
-                val factor: Rule<TestToken, Expr> by lazy {
-                    oneOf<TestToken, Expr>(
+                val factor = oneOf(
                             isA(TestToken.Integer::class).map(Expr::Leaf),
                             isA(TestToken.Identifier::class).map(Expr::Leaf),
                             seq(
@@ -67,21 +66,21 @@ class ParserTest : FunSpec({
                                     isA(TestToken.CloseParen::class)
                             ) { _, expr, _ -> expr }
                     )
-                }
 
-                val term: Rule<TestToken, Expr> by lazy {
-                    oneOf<TestToken, Expr>(
+                val term : Rule<TestToken, Expr> by lazy {
+                    oneOf(
                             factor,
-                            seq(L { factor }, multOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
+                            seq(factor, multOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
 
-                val expression: Rule<TestToken, Expr> by lazy {
-                    oneOf<TestToken, Expr>(
+                val expression : Rule<TestToken, Expr> by lazy {
+                    oneOf(
                             term,
-                            seq(L { term }, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
+                            seq(term, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
+
             }
 
             seq(grammar.expression, endOfInput()) { expr, _ -> expr }
