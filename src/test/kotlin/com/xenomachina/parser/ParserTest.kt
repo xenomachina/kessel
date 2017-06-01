@@ -40,7 +40,9 @@ fun <T> Stream<T>.assertHead() : T = (this as Stream.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
     test("simple") {
-        val parser = seq(isA(TestToken.Integer::class), endOfInput()) { integer, _ -> integer.value.toInt() }
+        val parser = Parser.Builder {
+            seq(isA(TestToken.Integer::class), endOfInput()) { integer, _ -> integer.value.toInt() }
+        }.build()
 
         parser.parse(tokenStream("5")) shouldEqual Either.Right(5)
 
@@ -49,32 +51,42 @@ class ParserTest : FunSpec({
     }
 
     test("expression") {
-        val parseTree = object {
-            val multOp = isA(TestToken.MultOp::class)
+        val parser = Parser.Builder {
+            val grammar = object {
+                val multOp = isA(TestToken.MultOp::class)
 
-            val addOp = isA(TestToken.AddOp::class)
+                val addOp = isA(TestToken.AddOp::class)
 
-            val factor : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
-                    isA(TestToken.Integer::class).map(Expr::Leaf),
-                    isA(TestToken.Identifier::class).map(Expr::Leaf),
-                    seq(
-                            isA(TestToken.OpenParen::class),
-                            L { expression },
-                            isA(TestToken.CloseParen::class)
-                    ) { _, expr, _ -> expr }
-            ) }
+                val factor: Rule<TestToken, Expr> by lazy {
+                    oneOf<TestToken, Expr>(
+                            isA(TestToken.Integer::class).map(Expr::Leaf),
+                            isA(TestToken.Identifier::class).map(Expr::Leaf),
+                            seq(
+                                    isA(TestToken.OpenParen::class),
+                                    L { expression },
+                                    isA(TestToken.CloseParen::class)
+                            ) { _, expr, _ -> expr }
+                    )
+                }
 
-            val term : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
-                    factor,
-                    seq(L { factor }, multOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
-            ) }
+                val term: Rule<TestToken, Expr> by lazy {
+                    oneOf<TestToken, Expr>(
+                            factor,
+                            seq(L { factor }, multOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
+                    )
+                }
 
-            val expression : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
-                    term,
-                    seq(L { term }, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
-            ) }
-        }
-        val parser = seq(parseTree.expression, endOfInput()) { expr, _ -> expr }
+                val expression: Rule<TestToken, Expr> by lazy {
+                    oneOf<TestToken, Expr>(
+                            term,
+                            seq(L { term }, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
+                    )
+                }
+            }
+
+            seq(grammar.expression, endOfInput()) { expr, _ -> expr }
+        }.build()
+
         val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
         ast as Expr.Op
         ast.op as TestToken.AddOp
@@ -97,16 +109,19 @@ class ParserTest : FunSpec({
     }
 
     test("simple left recursion") {
-        val parseTree = object {
-            val addOp = isA(TestToken.AddOp::class)
-            val number = isA(TestToken.Integer::class).map(Expr::Leaf)
+        val parser = Parser.Builder {
+            val grammar = object {
+                val addOp = isA(TestToken.AddOp::class)
+                val number = isA(TestToken.Integer::class).map(Expr::Leaf)
 
-            val expression : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
-                    number,
-                    seq(L { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
-            ) }
-        }
-        val parser = seq(parseTree.expression, endOfInput()) { expr, _ -> expr }
+                val expression : Rule<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+                        number,
+                        seq(L { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
+                ) }
+            }
+            seq(grammar.expression, endOfInput()) { expr, _ -> expr }
+        }.build()
+
         shouldThrow<IllegalStateException> {
             parser.parse(tokenStream("1 + 2 + 3 + 4"))
         }.run {
@@ -117,7 +132,7 @@ class ParserTest : FunSpec({
 
     // TODO: support left recursion, and re-enable this test
 //    test("left_recursion") {
-//        val parseTree = object {
+//        val grammar = object {
 //            val multOp = isA(TestToken.MultOp::class)
 //
 //            val addOp = isA(TestToken.AddOp::class)
@@ -142,7 +157,7 @@ class ParserTest : FunSpec({
 //                    seq(L { expression }, addOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
 //            ) }
 //        }
-//        val parser = seq(parseTree.expression, endOfInput()) { expr, _ -> expr }
+//        val parser = seq(grammar.expression, endOfInput()) { expr, _ -> expr }
 //        val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))"))
 //        ast.assertRight().javaClass shouldEqual Expr.Op::class
 //    }
