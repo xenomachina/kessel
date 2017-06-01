@@ -40,8 +40,8 @@ fun <T> Stream<T>.assertHead() : T = (this as Stream.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
     test("simple") {
-        val parser = Parser.Builder {
-            seq(isA(TestToken.Integer::class), endOfInput()) { integer, _ -> integer.value.toInt() }
+        val parser = Parser.Builder<TestToken, Int> {
+            seq(isA(TestToken.Integer::class), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
         parser.parse(tokenStream("5")) shouldEqual Either.Right(5)
@@ -51,7 +51,7 @@ class ParserTest : FunSpec({
     }
 
     test("expression") {
-        val parser = Parser.Builder {
+        val parser = Parser.Builder<TestToken, Expr> {
             val grammar = object {
                 val multOp = isA(TestToken.MultOp::class)
 
@@ -80,10 +80,9 @@ class ParserTest : FunSpec({
                             seq(term, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
-
             }
 
-            seq(grammar.expression, endOfInput()) { expr, _ -> expr }
+            seq(grammar.expression, END_OF_INPUT) { expr, _ -> expr }
         }.build()
 
         val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
@@ -108,7 +107,7 @@ class ParserTest : FunSpec({
     }
 
     test("simple left recursion") {
-        val parser = Parser.Builder {
+        val parser = Parser.Builder<TestToken, Expr> {
             val grammar = object {
                 val addOp = isA(TestToken.AddOp::class)
                 val number = isA(TestToken.Integer::class).map(Expr::Leaf)
@@ -118,7 +117,7 @@ class ParserTest : FunSpec({
                         seq(L { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
                 ) }
             }
-            seq(grammar.expression, endOfInput()) { expr, _ -> expr }
+            seq(grammar.expression, END_OF_INPUT) { expr, _ -> expr }
         }.build()
 
         shouldThrow<IllegalStateException> {

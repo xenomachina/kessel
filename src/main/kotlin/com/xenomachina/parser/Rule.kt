@@ -102,12 +102,41 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
         return Either.Left(errors)
     }
 
-    class Builder<in T, out R>(private val body: () -> Rule<T, R>) {
-        fun build(): Parser<T, R> = Parser(body())
+    class Builder<in T, out R>(private val body: Builder<T, R>.() -> Rule<T, R>) {
+        fun build(): Parser<T, R> = Parser(body(this))
+
+        fun <T : Any> isA(kclass: KClass<T>) : Rule<Any, T> {
+            val javaClass = kclass.java
+            return terminal<Any> { javaClass.isInstance(it) }.map { javaClass.cast(it) }
+        }
+
+        fun <T> terminal(predicate: (T) -> Boolean) = Terminal<T>(predicate)
+
+        fun <T, R> oneOf(rule1: Rule<T, R>, vararg rules: Rule<T, R>) = AlternativeRule(rule1, *rules)
+
+        fun <T, R> L(inner: () -> Rule<T, R>) : Rule<T, R> = LazyRule(inner)
+
+        fun <T, A, B, Z> seq(
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                constructor: (A, B) -> Z
+        ) : Rule<T, Z> = Sequence2Rule(ruleA, ruleB, constructor)
+
+        // TODO: inline to remove Pair construction
+        // TODO: add variants up to 7 parameters
+        fun <T, A, B, C, Z> seq(
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                ruleC: Rule<T, C>,
+                f: (A, B, C) -> Z
+        ) : Rule<T, Z> =
+                seq(ruleA, seq(ruleB, ruleC) { b, c -> Pair(b, c) }) { a, b_c -> f(a, b_c.first, b_c.second) }
+
+        val END_OF_INPUT = com.xenomachina.parser.END_OF_INPUT
     }
 }
 
-abstract class Rule<in T, out R>(val typeName: String) {
+abstract class Rule<in T, out R> {
 
     abstract internal fun <Q : T> partialParse(
             consumed: Int,
@@ -131,7 +160,7 @@ abstract class Rule<in T, out R>(val typeName: String) {
 }
 
 fun <T, A, B> Rule<T, A>.map(transform: (A) -> B) : Rule<T, B> = let { original ->
-    object : Rule<T, B>("map") {
+    object : Rule<T, B>() {
         override fun <Q : T> partialParse(
                 consumed: Int,
                 breadcrumbs: Map<Rule<*, *>, Int>,
@@ -141,8 +170,7 @@ fun <T, A, B> Rule<T, A>.map(transform: (A) -> B) : Rule<T, B> = let { original 
     }
 }
 
-// TODO: make these into named classes
-fun <T> epsilon() = object : Rule<T, Unit>("epsilon") {
+class Epsilon<T> : Rule<T, Unit>() {
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
@@ -151,8 +179,8 @@ fun <T> epsilon() = object : Rule<T, Unit>("epsilon") {
             streamOf(PartialResult( consumed, Either.Right(Unit), stream))
 }
 
-fun <T> endOfInput() = object : Rule<T, Unit>("endOfInput") {
-    override fun <Q : T> partialParse(
+val END_OF_INPUT = object : Rule<Any?, Unit>() {
+    override fun <Q> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
             stream: Stream<Q>
@@ -161,7 +189,7 @@ fun <T> endOfInput() = object : Rule<T, Unit>("endOfInput") {
                 is Stream.Empty ->
                     streamOf<PartialResult<Q, Unit>>(PartialResult(consumed, Either.Right(Unit), stream))
 
-                is Stream.NonEmpty<T> ->
+                is Stream.NonEmpty ->
                     streamOf(PartialResult(
                             consumed,
                             Either.Left(ParseError(consumed, stream.maybeHead) { "Expected end of input, found: ${stream.head}" }),
@@ -169,115 +197,99 @@ fun <T> endOfInput() = object : Rule<T, Unit>("endOfInput") {
             }
 }
 
-fun <T : Any> isA(kclass: KClass<T>) : Rule<Any, T> {
-    val javaClass = kclass.java
-    return terminal<Any> { javaClass.isInstance(it) }.map { javaClass.cast(it) }
+class Terminal<T>(val predicate: (T) -> Boolean) : Rule<T, T>() {
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            stream: Stream<Q>
+    ): Stream.NonEmpty<PartialResult<Q, T>> =
+            when (stream) {
+                is Stream.Empty ->
+                    streamOf(PartialResult<Q, T>(
+                            consumed,
+                            Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected end of input" }),
+                            stream))
+
+                is Stream.NonEmpty ->
+                    if (predicate(stream.head)) {
+                        streamOf(PartialResult(
+                                consumed + 1,
+                                Either.Right(stream.head),
+                                stream.tail))
+                    } else {
+                        streamOf(PartialResult(
+                                consumed,
+                                Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected: ${stream.head}" }),
+                                stream))
+                    }
+            }
 }
 
-fun <T> terminal(predicate: (T) -> Boolean) =
-        object : Rule<T, T>("terminal") {
-            override fun <Q : T> partialParse(
-                    consumed: Int,
-                    breadcrumbs: Map<Rule<*, *>, Int>,
-                    stream: Stream<Q>
-            ): Stream.NonEmpty<PartialResult<Q, T>> =
-                    when (stream) {
-                        is Stream.Empty ->
-                            streamOf(PartialResult<Q, T>(
-                                    consumed,
-                                    Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected end of input" }),
-                                    stream))
-
-                        is Stream.NonEmpty ->
-                            if (predicate(stream.head)) {
-                                streamOf(PartialResult(
-                                        consumed + 1,
-                                        Either.Right(stream.head),
-                                        stream.tail))
-                            } else {
-                                streamOf(PartialResult(
-                                        consumed,
-                                        Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected: ${stream.head}" }),
-                                        stream))
-                            }
-                    }
-        }
-
 /**
- * Creates a lazy wrapper around another Parser. This is useful for creating recursive parsers. For example:
+ * A lazy wrapper around another Parser. This is useful for creating recursive parsers. For example:
  *
  *     val listOfWidgets = oneOf(epsilon(), seq(widget, L(listOfWidgets)))
  */
-fun <T, R> L(inner: () -> Rule<T, R>) : Rule<T, R> =
-        object : Rule<T, R>("LAZY") {
-            val inner by lazy(inner)
-            override fun <Q : T> partialParse(
-                    consumed: Int,
-                    breadcrumbs: Map<Rule<*, *>, Int>,
-                    stream: Stream<Q>
-            ): Stream.NonEmpty<PartialResult<Q, R>> =
-                this.inner.call(consumed, breadcrumbs, stream)
-        }
+class LazyRule<T, R>(inner: () -> Rule<T, R>) : Rule<T, R>() {
+    val inner by lazy(inner)
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            stream: Stream<Q>
+    ): Stream.NonEmpty<PartialResult<Q, R>> =
+            this.inner.call(consumed, breadcrumbs, stream)
+}
 
-fun <T, R> oneOf(rule1: Rule<T, R>, vararg rules: Rule<T, R>) : Rule<T, R> =
-    object : Rule<T, R>("oneOf") {
-        override fun <Q : T> partialParse(
-                consumed: Int,
-                breadcrumbs: Map<Rule<*, *>, Int>,
-                stream: Stream<Q>
-        ): Stream.NonEmpty<PartialResult<Q, R>> {
-            var result : Stream.NonEmpty<PartialResult<Q, R>> = rule1.call(consumed, breadcrumbs, stream)
-            for (parser in rules) {
-                result = result + { parser.call(consumed, breadcrumbs, stream) }
-            }
-            return result
+class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T, R>) : Rule<T, R>() {
+    private val rules = listOf(*rules)
+
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            stream: Stream<Q>
+    ): Stream.NonEmpty<PartialResult<Q, R>> {
+        var result : Stream.NonEmpty<PartialResult<Q, R>> = rule1.call(consumed, breadcrumbs, stream)
+        for (parser in rules) {
+            result = result + { parser.call(consumed, breadcrumbs, stream) }
         }
+        return result
     }
+}
 
-fun <T, A, B, Z> seq(
-        ruleA: Rule<T, A>,
-        ruleB: Rule<T, B>,
-        f: (A, B) -> Z
-) : Rule<T, Z> =
-        object : Rule<T, Z>("seq") {
-            override fun <Q : T> partialParse(
-                    consumed: Int,
-                    breadcrumbs: Map<Rule<*, *>, Int>,
-                    stream: Stream<Q>
-            ): Stream.NonEmpty<PartialResult<Q, Z>> =
-                    // TODO: remove type params when Kotlin compiler can infer without crashing
-                    buildStream<PartialResult<Q, Z>> {
-                        for (partialA in ruleA.call(consumed, breadcrumbs, stream)) {
-                            when (partialA.value) {
-                                is Either.Left ->
-                                    // TODO: use unchecked cast? (object should be identical)
-                                    yield(PartialResult(partialA.consumed, partialA.value, partialA.remaining))
-                                is Either.Right -> // body(consumed, partialResult.value.right, remaining)
-                                    for (partialB in ruleB.call(partialA.consumed, breadcrumbs, partialA.remaining)) {
-                                        when (partialB.value) {
-                                            is Either.Left ->
-                                                // TODO: use unchecked cast? (object should be identical)
-                                                yield(PartialResult(partialB.consumed, partialB.value,
-                                                    partialB.remaining))
-                                            is Either.Right -> //body(consumed, partialResult.value.right, remaining)
-                                                yield(PartialResult(consumed,
-                                                    Either.Right(f(partialA.value.right, partialB.value.right)),
-                                                    partialB.remaining))
-                                        }
-                                    }
+class Sequence2Rule<T, A, B, Z> (
+        val ruleA: Rule<T, A>,
+        val ruleB: Rule<T, B>,
+        val constructor: (A, B) -> Z
+) : Rule<T, Z>() {
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            stream: Stream<Q>
+    ): Stream.NonEmpty<PartialResult<Q, Z>> =
+            // TODO: remove type params when Kotlin compiler can infer without crashing
+            buildStream<PartialResult<Q, Z>> {
+                for (partialA in ruleA.call(consumed, breadcrumbs, stream)) {
+                    when (partialA.value) {
+                        is Either.Left ->
+                            // TODO: use unchecked cast? (object should be identical)
+                            yield(PartialResult(partialA.consumed, partialA.value, partialA.remaining))
+                        is Either.Right -> // body(consumed, partialResult.value.right, remaining)
+                            for (partialB in ruleB.call(partialA.consumed, breadcrumbs, partialA.remaining)) {
+                                when (partialB.value) {
+                                    is Either.Left ->
+                                        // TODO: use unchecked cast? (object should be identical)
+                                        yield(PartialResult(partialB.consumed, partialB.value,
+                                                partialB.remaining))
+                                    is Either.Right -> //body(consumed, partialResult.value.right, remaining)
+                                        yield(PartialResult(consumed,
+                                                Either.Right(constructor(partialA.value.right, partialB.value.right)),
+                                                partialB.remaining))
+                                }
                             }
-                        }
-                    } as Stream.NonEmpty<PartialResult<Q, Z>>
-        }
-
-// TODO: inline to remove Pair construction
-fun <T, A, B, C, Z> seq(
-        ruleA: Rule<T, A>,
-        ruleB: Rule<T, B>,
-        ruleC: Rule<T, C>,
-        f: (A, B, C) -> Z
-) : Rule<T, Z> =
-        seq(ruleA, seq(ruleB, ruleC) { b, c -> Pair(b, c) }) { a, b_c -> f(a, b_c.first, b_c.second) }
+                    }
+                }
+            } as Stream.NonEmpty<PartialResult<Q, Z>>
+}
 
 // TODO: implementations below blow up with "java.lang.NoClassDefFoundError: kotlin/coroutines/Markers" at runtime.
 // TODO: make test case and file bug.
