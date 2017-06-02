@@ -27,27 +27,6 @@ import com.xenomachina.stream.plus
 import com.xenomachina.stream.streamOf
 import java.util.IdentityHashMap
 
-// TODO: make PartialResult private
-/**
- * @property consumed how many input tokens were sucessfully consumed to construct the sucessful result or before
- * failing
- * @property value either the parsed value, or a `ParseError` in the case of failure
- * @property remaining the remaining stream after the parsed value, or at the point of failure
- */
-internal data class PartialResult<out T, out R>(
-        val consumed: Int,
-        val value: Either<ParseError<T>, R>,
-        val remaining: Stream<T>
-) : Functor<R> {
-    override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
-}
-
-val <T> Stream<T>.maybeHead
-    get() = when (this) {
-        is Stream.NonEmpty -> Maybe.Just(head)
-        is Stream.Empty -> Maybe.NOTHING
-    }
-
 abstract class Rule<in T, out R> {
     abstract internal fun <Q : T> partialParse(
             consumed: Int,
@@ -166,6 +145,7 @@ class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T,
     }
 }
 
+// TODO: once KT-18268 is fixed, change this to use a "forRule" helper method
 class Sequence2Rule<T, A, B, Z> (
         val ruleA: Rule<T, A>,
         val ruleB: Rule<T, B>,
@@ -201,73 +181,22 @@ class Sequence2Rule<T, A, B, Z> (
             } as Stream.NonEmpty<PartialResult<Q, Z>>
 }
 
-// TODO: implementations below blow up with "java.lang.NoClassDefFoundError: kotlin/coroutines/Markers" at runtime.
-// TODO: make test case and file bug.
+/**
+ * @property consumed how many input tokens were sucessfully consumed to construct the sucessful result or before
+ * failing
+ * @property value either the parsed value, or a `ParseError` in the case of failure
+ * @property remaining the remaining stream after the parsed value, or at the point of failure
+ */
+internal data class PartialResult<out T, out R>(
+        val consumed: Int,
+        val value: Either<ParseError<T>, R>,
+        val remaining: Stream<T>
+) : Functor<R> {
+    override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
+}
 
-//fun <T, A, B, Z> seq(
-//        parserA: Parser<T, A>,
-//        parserB: Parser<T, B>,
-//        f: (A, B) -> Z
-//) : Parser<T, Z> =
-//        object : Parser<T, Z>() {
-//            override fun <Q : T> partialParse(
-//                consumed: Int, 
-//                breadcrumbs: Map<Parser<*, *>, Int>,
-//                stream: Stream<Q>
-//            ): Stream.NonEmpty<PartialResult<Q, Z>> =
-//                    // TODO: remove type params when Kotlin compiler can infer without crashing
-//                    buildStream<PartialResult<Q, Z>> {
-//                        forParser(parserA, consumed, stream) { consumed, a, remaining ->
-//                            forParser(parserB, consumed, remaining) { consumed, b, remaining ->
-//                                yield(PartialResult(consumed, Either.Right(f(a, b)), remaining))
-//                            }
-//                        }
-//                    } as Stream.NonEmpty<PartialResult<Q, Z>>
-//        }
-
-//fun <T, A, B, C, D, E, Z> seq(
-//        parserA: Parser<T, A>,
-//        parserB: Parser<T, B>,
-//        parserC: Parser<T, C>,
-//        parserD: Parser<T, D>,
-//        parserE: Parser<T, E>,
-//        f: (A, B, C, D, E) -> Z
-//) : Parser<T, Z> =
-//        object : Parser<T, Z>() {
-//            override fun <Q : T> partialParse(
-//                consumed: Int,
-//                breadcrumbs: Map<Parser<*, *>, Int>,
-//                stream: Stream<Q>
-//            ): Stream.NonEmpty<PartialResult<Q, Z>> =
-//                    // TODO: remove type params when Kotlin compiler can infer without crashing
-//                    buildStream<PartialResult<Q, Z>> {
-//                        forParser(parserA, consumed, stream) { consumed, a, remaining ->
-//                            forParser(parserB, consumed, remaining) { consumed, b, remaining ->
-//                                forParser(parserC, consumed, remaining) { consumed, c, remaining ->
-//                                    forParser(parserD, consumed, remaining) { consumed, d, remaining ->
-//                                        forParser(parserE, consumed, remaining) { consumed, e, remaining ->
-//                                            yield(PartialResult(consumed, Either.Right(f(a, b, c, d, e)), remaining))
-//                                        }
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    } as Stream.NonEmpty<PartialResult<Q, Z>>
-//        }
-//
-//// TODO: inline
-//private inline suspend fun <T, R, Z> SequenceBuilder<PartialResult<T, Z>>.forParser(
-//        parser: Parser<T, R>,
-//        consumed: Int,
-//        remaining: Stream<T>,
-//        body: (consumed: Int, value: R, remaining: Stream<T>) -> Unit
-//) {
-//    for (partialResult in parser.call(consumed, remaining)) {
-//        when (partialResult.value) {
-//            is Either.Left ->
-//                // TODO: use unchecked cast? (object should be identical)
-//                yield(PartialResult(partialResult.consumed, partialResult.value, partialResult.remaining))
-//            is Either.Right -> body(consumed, partialResult.value.right, remaining)
-//        }
-//    }
-//}
+val <T> Stream<T>.maybeHead
+    get() = when (this) {
+        is Stream.NonEmpty -> Maybe.Just(head)
+        is Stream.Empty -> Maybe.NOTHING
+    }
