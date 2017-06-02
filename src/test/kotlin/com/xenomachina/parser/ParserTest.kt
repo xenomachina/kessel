@@ -40,7 +40,7 @@ fun <T> Stream<T>.assertHead() : T = (this as Stream.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
     test("simple") {
-        val parser = Parser.Builder<TestToken, Int> {
+        val parser = Parser.Builder {
             seq(isA(TestToken.Integer::class), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
@@ -51,7 +51,7 @@ class ParserTest : FunSpec({
     }
 
     test("expression") {
-        val parser = Parser.Builder<TestToken, Expr> {
+        val parser = Parser.Builder {
             val grammar = object {
                 val multOp = isA(TestToken.MultOp::class)
 
@@ -107,7 +107,7 @@ class ParserTest : FunSpec({
     }
 
     test("simple left recursion") {
-        val parser = Parser.Builder<TestToken, Expr> {
+        val parser = Parser.Builder {
             val grammar = object {
                 val addOp = isA(TestToken.AddOp::class)
                 val number = isA(TestToken.Integer::class).map(Expr::Leaf)

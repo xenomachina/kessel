@@ -26,38 +26,6 @@ import com.xenomachina.stream.buildStream
 import com.xenomachina.stream.plus
 import com.xenomachina.stream.streamOf
 import java.util.IdentityHashMap
-import kotlin.reflect.KClass
-
-/**
- * @property message error message
- */
-class ParseError<out T>(val consumed: Int, val element: Maybe<T>, message: () -> String) {
-    val message by lazy { message() }
-
-    override fun toString(): String {
-        return "ParseError(\"$message\" @ $consumed :: <$element>)"
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other?.javaClass != javaClass) return false
-
-        other as ParseError<*>
-
-        if (consumed != other.consumed) return false
-        if (element != other.element) return false
-        if (message != other.message) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = consumed
-        result = 31 * result + element.hashCode()
-        result = 47 * result + message.hashCode()
-        return result
-    }
-}
 
 // TODO: make PartialResult private
 /**
@@ -80,64 +48,7 @@ val <T> Stream<T>.maybeHead
         is Stream.Empty -> Maybe.NOTHING
     }
 
-class Parser<in T, out R>(private val start: Rule<T, R>) {
-    fun <Q : T> parse(stream: Stream<Q>): Either<List<ParseError<Q>>, R> {
-        val breadcrumbs = IdentityHashMap<Rule<*, *>, Int>()
-        val errors = mutableListOf<ParseError<Q>>()
-        var bestConsumed = 0
-        for (partial in start.call(0, breadcrumbs, stream)) {
-            when (partial.value) {
-                is Either.Left -> {
-                    if (partial.consumed > bestConsumed) {
-                        bestConsumed = partial.consumed
-                        errors.clear()
-                    }
-                    if (partial.consumed == bestConsumed) {
-                        errors.add(partial.value.left)
-                    }
-                }
-                is Either.Right -> return Either.Right(partial.value.right)
-            }
-        }
-        return Either.Left(errors)
-    }
-
-    class Builder<in T, out R>(private val body: Builder<T, R>.() -> Rule<T, R>) {
-        fun build(): Parser<T, R> = Parser(body(this))
-
-        fun <T : Any> isA(kclass: KClass<T>) : Rule<Any, T> {
-            val javaClass = kclass.java
-            return terminal<Any> { javaClass.isInstance(it) }.map { javaClass.cast(it) }
-        }
-
-        fun <T> terminal(predicate: (T) -> Boolean) = Terminal<T>(predicate)
-
-        fun <T, R> oneOf(rule1: Rule<T, R>, vararg rules: Rule<T, R>) = AlternativeRule(rule1, *rules)
-
-        fun <T, R> L(inner: () -> Rule<T, R>) : Rule<T, R> = LazyRule(inner)
-
-        fun <T, A, B, Z> seq(
-                ruleA: Rule<T, A>,
-                ruleB: Rule<T, B>,
-                constructor: (A, B) -> Z
-        ) : Rule<T, Z> = Sequence2Rule(ruleA, ruleB, constructor)
-
-        // TODO: inline to remove Pair construction
-        // TODO: add variants up to 7 parameters
-        fun <T, A, B, C, Z> seq(
-                ruleA: Rule<T, A>,
-                ruleB: Rule<T, B>,
-                ruleC: Rule<T, C>,
-                f: (A, B, C) -> Z
-        ) : Rule<T, Z> =
-                seq(ruleA, seq(ruleB, ruleC) { b, c -> Pair(b, c) }) { a, b_c -> f(a, b_c.first, b_c.second) }
-
-        val END_OF_INPUT = com.xenomachina.parser.END_OF_INPUT
-    }
-}
-
 abstract class Rule<in T, out R> {
-
     abstract internal fun <Q : T> partialParse(
             consumed: Int,
             // TODO: change breadcrumbs to use a Stream instead of Map?
@@ -156,7 +67,6 @@ abstract class Rule<in T, out R> {
             return partialParse(consumed, IdentityHashMap(breadcrumbs).apply { put(this@Rule, consumed) }, stream)
         }
     }
-
 }
 
 fun <T, A, B> Rule<T, A>.map(transform: (A) -> B) : Rule<T, B> = let { original ->
