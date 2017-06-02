@@ -182,7 +182,7 @@ class Sequence2Rule<T, A, B, Z> (
 }
 
 /**
- * @property consumed how many input tokens were sucessfully consumed to construct the sucessful result or before
+ * @property consumed how many input tokens were successfully consumed to construct the successful result or before
  * failing
  * @property value either the parsed value, or a `ParseError` in the case of failure
  * @property remaining the remaining stream after the parsed value, or at the point of failure
