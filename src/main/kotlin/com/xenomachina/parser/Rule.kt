@@ -57,29 +57,17 @@ abstract class Rule<in T, out R> {
     )
 }
 
-// TODO: should be inline, but compiler bug???
 private inline fun Rule<*, *>.computeRulePropertiesHelper(
         result: MutableMap<Rule<*, *>, Rule.Properties>,
         seen: MutableMap<Rule<*, *>, Boolean>,
         crossinline body: () -> Rule.Properties?): Rule.Properties? {
     val props : Rule.Properties?
-    // TODO: remove these printlns
     if (seen.containsKey(this)) {
         props = result.get(this)
-        println("SEEN $this => $props")
     } else {
         seen.put(this, false)
-        println("NOT SEEN $this {")
-        try {
-            props = body() ?: Rule.Properties(nullable = false)
-            result.put(this, props)
-            println("} NOT SEEN $this => $props")
-        } catch (x: Throwable) {
-            println("} NOT SEEN $this THROW $x")
-            throw x
-        } finally {
-            println("WTF $this")
-        }
+        props = body() ?: Rule.Properties(nullable = false)
+        result.put(this, props)
         seen.put(this, true)
     }
     return props
