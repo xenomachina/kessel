@@ -24,6 +24,21 @@ import java.util.IdentityHashMap
 import kotlin.reflect.KClass
 
 class Parser<in T, out R>(private val start: Rule<T, R>) {
+    val ruleProps = computeRuleProperties()
+
+    private fun computeRuleProperties(): Map<Rule<*, *>, Rule.Properties> {
+        val result = IdentityHashMap<Rule<*, *>, Rule.Properties>()
+        val seen = IdentityHashMap<Rule<*, *>, Boolean>()
+        start.computeRuleProperties(result, seen)
+        for ((key, value) in seen.entries) {
+            assert (value) { "$key Properties not computed!?" }
+        }
+        return result
+    }
+
+    private val Rule<*, *>.properties
+        get() = ruleProps.get(this)!!
+
     fun <Q : T> parse(stream: Stream<Q>): Either<List<ParseError<Q>>, R> {
         val breadcrumbs = IdentityHashMap<Rule<*, *>, Int>()
         val errors = mutableListOf<ParseError<Q>>()

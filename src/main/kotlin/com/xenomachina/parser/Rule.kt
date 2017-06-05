@@ -46,20 +46,70 @@ abstract class Rule<in T, out R> {
             return partialParse(consumed, IdentityHashMap(breadcrumbs).apply { put(this@Rule, consumed) }, stream)
         }
     }
+
+    internal abstract fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ): Properties?
+
+    data class Properties(
+            val nullable: Boolean
+    )
 }
 
-fun <T, A, B> Rule<T, A>.map(transform: (A) -> B) : Rule<T, B> = let { original ->
-    object : Rule<T, B>() {
-        override fun <Q : T> partialParse(
-                consumed: Int,
-                breadcrumbs: Map<Rule<*, *>, Int>,
-                stream: Stream<Q>
-        ): Stream.NonEmpty<PartialResult<Q, B>> =
-            original.call(consumed, breadcrumbs, stream).map { it.map(transform) }
+// TODO: should be inline, but compiler bug???
+private inline fun Rule<*, *>.computeRulePropertiesHelper(
+        result: MutableMap<Rule<*, *>, Rule.Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>,
+        crossinline body: () -> Rule.Properties?): Rule.Properties? {
+    val props : Rule.Properties?
+    // TODO: remove these printlns
+    if (seen.containsKey(this)) {
+        props = result.get(this)
+        println("SEEN $this => $props")
+    } else {
+        seen.put(this, false)
+        println("NOT SEEN $this {")
+        try {
+            props = body() ?: Rule.Properties(nullable = false)
+            result.put(this, props)
+            println("} NOT SEEN $this => $props")
+        } catch (x: Throwable) {
+            println("} NOT SEEN $this THROW $x")
+            throw x
+        } finally {
+            println("WTF $this")
+        }
+        seen.put(this, true)
     }
+    return props
 }
 
+fun <T, A, B> Rule<T, A>.map(transform: (A) -> B) : Rule<T, B> = MappingRule<T, A, B>(this, transform)
+
+class MappingRule<T, A, B>(val original: Rule<T, A>, val transform: (A) -> B) : Rule<T, B>() {
+    override fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ) = computeRulePropertiesHelper(result, seen) { original.computeRuleProperties(result, seen) }
+
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            stream: Stream<Q>
+    ): Stream.NonEmpty<PartialResult<Q, B>> =
+            original.call(consumed, breadcrumbs, stream).map { it.map(transform) }
+}
+
+// TODO: don't use computeRulePropertiesHelper here
 class Epsilon<T> : Rule<T, Unit>() {
+    override fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ) = computeRulePropertiesHelper(result, seen) {
+        Properties(nullable = true)
+    }
+
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
@@ -68,7 +118,15 @@ class Epsilon<T> : Rule<T, Unit>() {
             streamOf(PartialResult( consumed, Either.Right(Unit), stream))
 }
 
+// TODO: don't use computeRulePropertiesHelper here
 val END_OF_INPUT = object : Rule<Any?, Unit>() {
+    override fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ) = computeRulePropertiesHelper(result, seen) {
+        Properties(nullable = false)
+    }
+
     override fun <Q> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
@@ -86,7 +144,15 @@ val END_OF_INPUT = object : Rule<Any?, Unit>() {
             }
 }
 
+// TODO: don't use computeRulePropertiesHelper here
 class Terminal<T>(val predicate: (T) -> Boolean) : Rule<T, T>() {
+    override fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ) = computeRulePropertiesHelper(result, seen) {
+        Properties(nullable = false)
+    }
+
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
@@ -121,6 +187,12 @@ class Terminal<T>(val predicate: (T) -> Boolean) : Rule<T, T>() {
  */
 class LazyRule<T, R>(inner: () -> Rule<T, R>) : Rule<T, R>() {
     val inner by lazy(inner)
+
+    override fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ) = computeRulePropertiesHelper(result, seen) { inner.computeRuleProperties(result, seen) }
+
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
@@ -130,6 +202,19 @@ class LazyRule<T, R>(inner: () -> Rule<T, R>) : Rule<T, R>() {
 }
 
 class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T, R>) : Rule<T, R>() {
+    override fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ) = computeRulePropertiesHelper(result, seen) {
+        val props1 = rule1.computeRuleProperties(result, seen)
+        var nullable = props1?.nullable ?: false
+        for (rule in rules) {
+            val props = rule.computeRuleProperties(result, seen)
+            nullable = nullable || (props?.nullable ?: false)
+        }
+        Properties(nullable)
+    }
+
     private val rules = listOf(*rules)
 
     override fun <Q : T> partialParse(
@@ -145,17 +230,28 @@ class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T,
     }
 }
 
-// TODO: once KT-18268 is fixed, change this to use a "forRule" helper method
 class Sequence2Rule<T, A, B, Z> (
         val ruleA: Rule<T, A>,
         val ruleB: Rule<T, B>,
         val constructor: (A, B) -> Z
 ) : Rule<T, Z>() {
+    override fun computeRuleProperties(
+            result: MutableMap<Rule<*, *>, Properties>,
+            seen: MutableMap<Rule<*, *>, Boolean>
+    ) = computeRulePropertiesHelper(result, seen) {
+        val propsA = ruleA.computeRuleProperties(result, seen)
+        var nullable = propsA?.nullable ?: false
+        val propsB = ruleB.computeRuleProperties(result, seen)
+        nullable = nullable && (propsB?.nullable ?: false)
+        Properties(nullable)
+    }
+
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
             stream: Stream<Q>
     ): Stream.NonEmpty<PartialResult<Q, Z>> =
+            // TODO: once KT-18268 is fixed, change this to use a "forRule" helper method
             // TODO: remove type params when Kotlin compiler can infer without crashing
             buildStream<PartialResult<Q, Z>> {
                 for (partialA in ruleA.call(consumed, breadcrumbs, stream)) {

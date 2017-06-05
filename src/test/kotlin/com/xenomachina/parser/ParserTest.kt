@@ -50,7 +50,13 @@ class ParserTest : FunSpec({
                 .shouldEqual("Unexpected: Identifier(value=hello)")
     }
 
+    // TODO: add test where nullable is true
+
     test("expression") {
+
+        var multRule : Rule<*, *>? = null
+        var exprRule : Rule<*, *>? = null
+
         val parser = Parser.Builder {
             val grammar = object {
                 val multOp = isA(TestToken.MultOp::class)
@@ -80,10 +86,17 @@ class ParserTest : FunSpec({
                             seq(term, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
+                init {
+                    multRule = multOp
+                    exprRule = expression
+                }
             }
 
             seq(grammar.expression, END_OF_INPUT) { expr, _ -> expr }
         }.build()
+
+        parser.ruleProps[multRule!!]!!.nullable shouldEqual false
+        parser.ruleProps[exprRule!!]!!.nullable shouldEqual false
 
         val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
         ast as Expr.Op
