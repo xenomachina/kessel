@@ -89,14 +89,11 @@ class MappingRule<T, A, B>(val original: Rule<T, A>, val transform: (A) -> B) : 
             original.call(consumed, breadcrumbs, stream).map { it.map(transform) }
 }
 
-// TODO: don't use computeRulePropertiesHelper here
 class Epsilon<T> : Rule<T, Unit>() {
     override fun computeRuleProperties(
             result: MutableMap<Rule<*, *>, Properties>,
             seen: MutableMap<Rule<*, *>, Boolean>
-    ) = computeRulePropertiesHelper(result, seen) {
-        Properties(nullable = true)
-    }
+    ) = Properties(nullable = true)
 
     override fun <Q : T> partialParse(
             consumed: Int,
@@ -106,14 +103,11 @@ class Epsilon<T> : Rule<T, Unit>() {
             streamOf(PartialResult( consumed, Either.Right(Unit), stream))
 }
 
-// TODO: don't use computeRulePropertiesHelper here
 val END_OF_INPUT = object : Rule<Any?, Unit>() {
     override fun computeRuleProperties(
             result: MutableMap<Rule<*, *>, Properties>,
             seen: MutableMap<Rule<*, *>, Boolean>
-    ) = computeRulePropertiesHelper(result, seen) {
-        Properties(nullable = false)
-    }
+    ) = Properties(nullable = false)
 
     override fun <Q> partialParse(
             consumed: Int,
@@ -132,14 +126,11 @@ val END_OF_INPUT = object : Rule<Any?, Unit>() {
             }
 }
 
-// TODO: don't use computeRulePropertiesHelper here
 class Terminal<T>(val predicate: (T) -> Boolean) : Rule<T, T>() {
     override fun computeRuleProperties(
             result: MutableMap<Rule<*, *>, Properties>,
             seen: MutableMap<Rule<*, *>, Boolean>
-    ) = computeRulePropertiesHelper(result, seen) {
-        Properties(nullable = false)
-    }
+    ) = Properties(nullable = false)
 
     override fun <Q : T> partialParse(
             consumed: Int,
