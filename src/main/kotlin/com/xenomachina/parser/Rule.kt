@@ -18,32 +18,32 @@
 
 package com.xenomachina.parser
 
+import com.xenomachina.chain.Chain
+import com.xenomachina.chain.buildChain
+import com.xenomachina.chain.chainOf
+import com.xenomachina.chain.plus
 import com.xenomachina.common.Either
 import com.xenomachina.common.Functor
 import com.xenomachina.common.Maybe
-import com.xenomachina.stream.Stream
-import com.xenomachina.stream.buildStream
-import com.xenomachina.stream.plus
-import com.xenomachina.stream.streamOf
 import java.util.IdentityHashMap
 
 abstract class Rule<in T, out R> {
     abstract internal fun <Q : T> partialParse(
             consumed: Int,
-            // TODO: change breadcrumbs to use a Stream instead of Map?
+            // TODO: change breadcrumbs to use a Chain instead of Map?
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, R>>
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, R>>
 
     internal fun <Q : T> call(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, R>> {
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, R>> {
         if (breadcrumbs.get(this) == consumed) {
             throw IllegalStateException("Left recursion detected")
         } else {
-            return partialParse(consumed, IdentityHashMap(breadcrumbs).apply { put(this@Rule, consumed) }, stream)
+            return partialParse(consumed, IdentityHashMap(breadcrumbs).apply { put(this@Rule, consumed) }, chain)
         }
     }
 
@@ -84,9 +84,9 @@ class MappingRule<T, A, B>(val original: Rule<T, A>, val transform: (A) -> B) : 
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, B>> =
-            original.call(consumed, breadcrumbs, stream).map { it.map(transform) }
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, B>> =
+            original.call(consumed, breadcrumbs, chain).map { it.map(transform) }
 }
 
 class Epsilon<T> : Rule<T, Unit>() {
@@ -98,9 +98,9 @@ class Epsilon<T> : Rule<T, Unit>() {
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, Unit>> =
-            streamOf(PartialResult( consumed, Either.Right(Unit), stream))
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Unit>> =
+            chainOf(PartialResult( consumed, Either.Right(Unit), chain))
 }
 
 val END_OF_INPUT = object : Rule<Any?, Unit>() {
@@ -112,17 +112,17 @@ val END_OF_INPUT = object : Rule<Any?, Unit>() {
     override fun <Q> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, Unit>> =
-            when (stream) {
-                is Stream.Empty ->
-                    streamOf<PartialResult<Q, Unit>>(PartialResult(consumed, Either.Right(Unit), stream))
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Unit>> =
+            when (chain) {
+                is Chain.Empty ->
+                    chainOf<PartialResult<Q, Unit>>(PartialResult(consumed, Either.Right(Unit), chain))
 
-                is Stream.NonEmpty ->
-                    streamOf(PartialResult(
+                is Chain.NonEmpty ->
+                    chainOf(PartialResult(
                             consumed,
-                            Either.Left(ParseError(consumed, stream.maybeHead) { "Expected end of input, found: ${stream.head}" }),
-                            stream))
+                            Either.Left(ParseError(consumed, chain.maybeHead) { "Expected end of input, found: ${chain.head}" }),
+                            chain))
             }
 }
 
@@ -135,26 +135,26 @@ class Terminal<T>(val predicate: (T) -> Boolean) : Rule<T, T>() {
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, T>> =
-            when (stream) {
-                is Stream.Empty ->
-                    streamOf(PartialResult<Q, T>(
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, T>> =
+            when (chain) {
+                is Chain.Empty ->
+                    chainOf(PartialResult<Q, T>(
                             consumed,
-                            Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected end of input" }),
-                            stream))
+                            Either.Left(ParseError(consumed, chain.maybeHead) { "Unexpected end of input" }),
+                            chain))
 
-                is Stream.NonEmpty ->
-                    if (predicate(stream.head)) {
-                        streamOf(PartialResult(
+                is Chain.NonEmpty ->
+                    if (predicate(chain.head)) {
+                        chainOf(PartialResult(
                                 consumed + 1,
-                                Either.Right(stream.head),
-                                stream.tail))
+                                Either.Right(chain.head),
+                                chain.tail))
                     } else {
-                        streamOf(PartialResult(
+                        chainOf(PartialResult(
                                 consumed,
-                                Either.Left(ParseError(consumed, stream.maybeHead) { "Unexpected: ${stream.head}" }),
-                                stream))
+                                Either.Left(ParseError(consumed, chain.maybeHead) { "Unexpected: ${chain.head}" }),
+                                chain))
                     }
             }
 }
@@ -175,9 +175,9 @@ class LazyRule<T, R>(inner: () -> Rule<T, R>) : Rule<T, R>() {
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, R>> =
-            this.inner.call(consumed, breadcrumbs, stream)
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, R>> =
+            this.inner.call(consumed, breadcrumbs, chain)
 }
 
 class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T, R>) : Rule<T, R>() {
@@ -199,11 +199,11 @@ class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T,
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, R>> {
-        var result : Stream.NonEmpty<PartialResult<Q, R>> = rule1.call(consumed, breadcrumbs, stream)
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, R>> {
+        var result : Chain.NonEmpty<PartialResult<Q, R>> = rule1.call(consumed, breadcrumbs, chain)
         for (parser in rules) {
-            result = result + { parser.call(consumed, breadcrumbs, stream) }
+            result = result + { parser.call(consumed, breadcrumbs, chain) }
         }
         return result
     }
@@ -228,12 +228,12 @@ class Sequence2Rule<T, A, B, Z> (
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
-            stream: Stream<Q>
-    ): Stream.NonEmpty<PartialResult<Q, Z>> =
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Z>> =
             // TODO: once KT-18268 is fixed, change this to use a "forRule" helper method
             // TODO: remove type params when Kotlin compiler can infer without crashing
-            buildStream<PartialResult<Q, Z>> {
-                for (partialA in ruleA.call(consumed, breadcrumbs, stream)) {
+            buildChain<PartialResult<Q, Z>> {
+                for (partialA in ruleA.call(consumed, breadcrumbs, chain)) {
                     when (partialA.value) {
                         is Either.Left ->
                             // TODO: use unchecked cast? (object should be identical)
@@ -253,25 +253,25 @@ class Sequence2Rule<T, A, B, Z> (
                             }
                     }
                 }
-            } as Stream.NonEmpty<PartialResult<Q, Z>>
+            } as Chain.NonEmpty<PartialResult<Q, Z>>
 }
 
 /**
  * @property consumed how many input tokens were successfully consumed to construct the successful result or before
  * failing
  * @property value either the parsed value, or a `ParseError` in the case of failure
- * @property remaining the remaining stream after the parsed value, or at the point of failure
+ * @property remaining the remaining chain after the parsed value, or at the point of failure
  */
 internal data class PartialResult<out T, out R>(
         val consumed: Int,
         val value: Either<ParseError<T>, R>,
-        val remaining: Stream<T>
+        val remaining: Chain<T>
 ) : Functor<R> {
     override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
 }
 
-val <T> Stream<T>.maybeHead
+val <T> Chain<T>.maybeHead
     get() = when (this) {
-        is Stream.NonEmpty -> Maybe.Just(head)
-        is Stream.Empty -> Maybe.NOTHING
+        is Chain.NonEmpty -> Maybe.Just(head)
+        is Chain.Empty -> Maybe.NOTHING
     }

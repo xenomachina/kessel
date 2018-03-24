@@ -19,7 +19,7 @@
 package com.xenomachina.parser
 
 import com.xenomachina.common.Either
-import com.xenomachina.stream.Stream
+import com.xenomachina.chain.Chain
 import java.util.IdentityHashMap
 import kotlin.reflect.KClass
 
@@ -39,11 +39,11 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
     private val Rule<*, *>.properties
         get() = ruleProps.get(this)!!
 
-    fun <Q : T> parse(stream: Stream<Q>): Either<List<ParseError<Q>>, R> {
+    fun <Q : T> parse(chain: Chain<Q>): Either<List<ParseError<Q>>, R> {
         val breadcrumbs = IdentityHashMap<Rule<*, *>, Int>()
         val errors = mutableListOf<ParseError<Q>>()
         var bestConsumed = 0
-        for (partial in start.call(0, breadcrumbs, stream)) {
+        for (partial in start.call(0, breadcrumbs, chain)) {
             when (partial.value) {
                 is Either.Left -> {
                     if (partial.consumed > bestConsumed) {

@@ -19,15 +19,15 @@
 package com.xenomachina.parser
 
 import com.xenomachina.common.Either
-import com.xenomachina.stream.Stream
-import com.xenomachina.stream.asStream
+import com.xenomachina.chain.Chain
+import com.xenomachina.chain.asChain
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FunSpec
 
-private fun tokenStream(s: String) = TEST_TOKENIZER.tokenize(s)
+private fun tokenChain(s: String) = TEST_TOKENIZER.tokenize(s)
         .map { it.value }
-        .filter { !(it is TestToken.Space) }.asStream()
+        .filter { !(it is TestToken.Space) }.asChain()
 
 sealed class Expr {
     data class Op(val left: Expr, val op: TestToken, val right: Expr) : Expr()
@@ -36,7 +36,7 @@ sealed class Expr {
 
 fun <L, R> Either<L, R>.assertRight() : R = (this as Either.Right<R>).right
 fun <L, R> Either<L, R>.assertLeft() : L = (this as Either.Left<L>).left
-fun <T> Stream<T>.assertHead() : T = (this as Stream.NonEmpty<T>).head
+fun <T> Chain<T>.assertHead() : T = (this as Chain.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
     test("simple") {
@@ -44,9 +44,9 @@ class ParserTest : FunSpec({
             seq(isA(TestToken.Integer::class), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
-        parser.parse(tokenStream("5")) shouldEqual Either.Right(5)
+        parser.parse(tokenChain("5")) shouldEqual Either.Right(5)
 
-        parser.parse(tokenStream("hello")).assertLeft().first().message
+        parser.parse(tokenChain("hello")).assertLeft().first().message
                 .shouldEqual("Unexpected: Identifier(value=hello)")
     }
 
@@ -98,7 +98,7 @@ class ParserTest : FunSpec({
         parser.ruleProps[multRule!!]!!.nullable shouldEqual false
         parser.ruleProps[exprRule!!]!!.nullable shouldEqual false
 
-        val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
+        val ast = parser.parse(tokenChain("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
         ast as Expr.Op
         ast.op as TestToken.AddOp
         ast.op.value shouldEqual "-"
@@ -134,7 +134,7 @@ class ParserTest : FunSpec({
         }.build()
 
         shouldThrow<IllegalStateException> {
-            parser.parse(tokenStream("1 + 2 + 3 + 4"))
+            parser.parse(tokenChain("1 + 2 + 3 + 4"))
         }.run {
             // Left-recursion is not currently supported.
             message shouldEqual "Left recursion detected"
@@ -169,7 +169,7 @@ class ParserTest : FunSpec({
 //            ) }
 //        }
 //        val parser = seq(grammar.expression, endOfInput()) { expr, _ -> expr }
-//        val ast = parser.parse(tokenStream("5 * (3 + 7) - (4 / (2 - 1))"))
+//        val ast = parser.parse(tokenChain("5 * (3 + 7) - (4 / (2 - 1))"))
 //        ast.assertRight().javaClass shouldEqual Expr.Op::class
 //    }
 })
