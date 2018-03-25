@@ -26,6 +26,7 @@ import com.xenomachina.common.Either
 import com.xenomachina.common.Functor
 import com.xenomachina.common.Maybe
 import java.util.IdentityHashMap
+import kotlin.coroutines.experimental.SequenceBuilder
 
 abstract class Rule<in T, out R> {
     abstract internal fun <Q : T> partialParse(
@@ -230,30 +231,37 @@ class Sequence2Rule<T, A, B, Z> (
             breadcrumbs: Map<Rule<*, *>, Int>,
             chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
-            // TODO: once KT-18268 is fixed, change this to use a "forRule" helper method
             // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
-                for (partialA in ruleA.call(consumed, breadcrumbs, chain)) {
-                    when (partialA.value) {
-                        is Either.Left ->
-                            // TODO: use unchecked cast? (object should be identical)
-                            yield(PartialResult(partialA.consumed, partialA.value, partialA.remaining))
-                        is Either.Right -> // body(consumed, partialResult.value.right, remaining)
-                            for (partialB in ruleB.call(partialA.consumed, breadcrumbs, partialA.remaining)) {
-                                when (partialB.value) {
-                                    is Either.Left ->
-                                        // TODO: use unchecked cast? (object should be identical)
-                                        yield(PartialResult(partialB.consumed, partialB.value,
-                                                partialB.remaining))
-                                    is Either.Right -> //body(consumed, partialResult.value.right, remaining)
-                                        yield(PartialResult(consumed,
-                                                Either.Right(constructor(partialA.value.right, partialB.value.right)),
-                                                partialB.remaining))
-                                }
-                            }
+
+                forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
+                    forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
+                        yield(PartialResult(consumed,
+                                Either.Right(constructor(a, b)),
+                                partialB.remaining))
                     }
                 }
             } as Chain.NonEmpty<PartialResult<Q, Z>>
+}
+
+// TODO: make this inline when inline lambda parameters of suspend function type are supported by Kotlin.
+private suspend fun <T, Z, Q: T, R> SequenceBuilder<PartialResult<Q, Z>>.forSequenceSubRule(
+        rule: Rule<T, R>,
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>,
+        body: suspend SequenceBuilder<PartialResult<Q, Z>>.(PartialResult<Q, R>, R) -> Unit
+) {
+    for (partial in rule.call(consumed, breadcrumbs, chain)) {
+        when (partial.value) {
+            is Either.Left ->
+                // TODO: use unchecked cast? (object should be identical)
+                yield(PartialResult(partial.consumed, partial.value, partial.remaining))
+            is Either.Right -> {
+                body(partial, partial.value.right)
+            }
+        }
+    }
 }
 
 /**
