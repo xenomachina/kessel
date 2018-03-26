@@ -210,10 +210,9 @@ class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T,
     }
 }
 
-class Sequence2Rule<T, A, B, Z> (
-        val ruleA: Rule<T, A>,
-        val ruleB: Rule<T, B>,
-        val constructor: (A, B) -> Z
+sealed class SequenceRule<T, Z> (
+        private val ruleA: Rule<T, *>,
+        private vararg val rules: Rule<T, *>
 ) : Rule<T, Z>() {
     override fun computeRuleProperties(
             result: MutableMap<Rule<*, *>, Properties>,
@@ -221,24 +220,185 @@ class Sequence2Rule<T, A, B, Z> (
     ) = computeRulePropertiesHelper(result, seen) {
         val propsA = ruleA.computeRuleProperties(result, seen)
         var nullable = propsA?.nullable ?: false
-        val propsB = ruleB.computeRuleProperties(result, seen)
-        nullable = nullable && (propsB?.nullable ?: false)
+        for (rule in rules) {
+            val props = rule.computeRuleProperties(result, seen)
+            nullable = nullable && (props?.nullable ?: false)
+        }
         Properties(nullable)
     }
+}
 
+class Sequence2Rule<T, A, B, Z>(
+        val ruleA: Rule<T, A>,
+        val ruleB: Rule<T, B>,
+        val constructor: (A, B) -> Z
+) : SequenceRule<T, Z>(ruleA, ruleB) {
     override fun <Q : T> partialParse(
             consumed: Int,
             breadcrumbs: Map<Rule<*, *>, Int>,
             chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
-            // TODO: remove type params when Kotlin compiler can infer without crashing
+    // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
-
                 forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
                     forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
                         yield(PartialResult(consumed,
                                 Either.Right(constructor(a, b)),
                                 partialB.remaining))
+                    }
+                }
+            } as Chain.NonEmpty<PartialResult<Q, Z>>
+}
+
+class Sequence3Rule<T, A, B, C, Z>(
+        val ruleA: Rule<T, A>,
+        val ruleB: Rule<T, B>,
+        val ruleC: Rule<T, C>,
+        val constructor: (A, B, C) -> Z
+) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Z>> =
+    // TODO: remove type params when Kotlin compiler can infer without crashing
+            buildChain<PartialResult<Q, Z>> {
+                forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
+                    forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
+                        forSequenceSubRule(ruleC, partialB.consumed, breadcrumbs, partialB.remaining) { partialC, c ->
+                            yield(PartialResult(consumed,
+                                    Either.Right(constructor(a, b, c)),
+                                    partialC.remaining))
+                        }
+                    }
+                }
+            } as Chain.NonEmpty<PartialResult<Q, Z>>
+}
+
+class Sequence4Rule<T, A, B, C, D, Z>(
+        val ruleA: Rule<T, A>,
+        val ruleB: Rule<T, B>,
+        val ruleC: Rule<T, C>,
+        val ruleD: Rule<T, D>,
+        val constructor: (A, B, C, D) -> Z
+) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Z>> =
+    // TODO: remove type params when Kotlin compiler can infer without crashing
+            buildChain<PartialResult<Q, Z>> {
+                forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
+                    forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
+                        forSequenceSubRule(ruleC, partialB.consumed, breadcrumbs, partialB.remaining) { partialC, c ->
+                            forSequenceSubRule(ruleD, partialC.consumed, breadcrumbs, partialC.remaining) { partialD, d ->
+                                yield(PartialResult(
+                                        consumed, Either.Right(constructor(a, b, c, d)), partialD.remaining))
+                            }
+                        }
+                    }
+                }
+            } as Chain.NonEmpty<PartialResult<Q, Z>>
+}
+
+class Sequence5Rule<T, A, B, C, D, E, Z>(
+        val ruleA: Rule<T, A>,
+        val ruleB: Rule<T, B>,
+        val ruleC: Rule<T, C>,
+        val ruleD: Rule<T, D>,
+        val ruleE: Rule<T, E>,
+        val constructor: (A, B, C, D, E) -> Z
+) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Z>> =
+    // TODO: remove type params when Kotlin compiler can infer without crashing
+            buildChain<PartialResult<Q, Z>> {
+                forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
+                    forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
+                        forSequenceSubRule(ruleC, partialB.consumed, breadcrumbs, partialB.remaining) { partialC, c ->
+                            forSequenceSubRule(ruleD, partialC.consumed, breadcrumbs, partialC.remaining) { partialD, d ->
+                                forSequenceSubRule(ruleE, partialD.consumed, breadcrumbs, partialD.remaining) { partialE, e ->
+                                    yield(PartialResult(consumed,
+                                            Either.Right(constructor(a, b, c, d, e)),
+                                            partialE.remaining))
+                                }
+                            }
+                        }
+                    }
+                }
+            } as Chain.NonEmpty<PartialResult<Q, Z>>
+}
+
+class Sequence6Rule<T, A, B, C, D, E, F, Z>(
+        val ruleA: Rule<T, A>,
+        val ruleB: Rule<T, B>,
+        val ruleC: Rule<T, C>,
+        val ruleD: Rule<T, D>,
+        val ruleE: Rule<T, E>,
+        val ruleF: Rule<T, F>,
+        val constructor: (A, B, C, D, E, F) -> Z
+) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Z>> =
+    // TODO: remove type params when Kotlin compiler can infer without crashing
+            buildChain<PartialResult<Q, Z>> {
+                forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
+                    forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
+                        forSequenceSubRule(ruleC, partialB.consumed, breadcrumbs, partialB.remaining) { partialC, c ->
+                            forSequenceSubRule(ruleD, partialC.consumed, breadcrumbs, partialC.remaining) { partialD, d ->
+                                forSequenceSubRule(ruleE, partialD.consumed, breadcrumbs, partialD.remaining) { partialE, e ->
+                                    forSequenceSubRule(ruleF, partialE.consumed, breadcrumbs, partialE.remaining) { partialF, f ->
+                                        yield(PartialResult(consumed,
+                                                Either.Right(constructor(a, b, c, d, e, f)),
+                                                partialF.remaining))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } as Chain.NonEmpty<PartialResult<Q, Z>>
+}
+
+class Sequence7Rule<T, A, B, C, D, E, F, G, Z>(
+        val ruleA: Rule<T, A>,
+        val ruleB: Rule<T, B>,
+        val ruleC: Rule<T, C>,
+        val ruleD: Rule<T, D>,
+        val ruleE: Rule<T, E>,
+        val ruleF: Rule<T, F>,
+        val ruleG: Rule<T, G>,
+        val constructor: (A, B, C, D, E, F, G) -> Z
+) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
+    override fun <Q : T> partialParse(
+            consumed: Int,
+            breadcrumbs: Map<Rule<*, *>, Int>,
+            chain: Chain<Q>
+    ): Chain.NonEmpty<PartialResult<Q, Z>> =
+    // TODO: remove type params when Kotlin compiler can infer without crashing
+            buildChain<PartialResult<Q, Z>> {
+                forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
+                    forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
+                        forSequenceSubRule(ruleC, partialB.consumed, breadcrumbs, partialB.remaining) { partialC, c ->
+                            forSequenceSubRule(ruleD, partialC.consumed, breadcrumbs, partialC.remaining) { partialD, d ->
+                                forSequenceSubRule(ruleE, partialD.consumed, breadcrumbs, partialD.remaining) { partialE, e ->
+                                    forSequenceSubRule(ruleF, partialE.consumed, breadcrumbs, partialE.remaining) { partialF, f ->
+                                        forSequenceSubRule(ruleG, partialF.consumed, breadcrumbs, partialF.remaining) { partialG, g ->
+                                            yield(PartialResult(consumed,
+                                                    Either.Right(constructor(a, b, c, d, e, f, g)),
+                                                    partialG.remaining))
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             } as Chain.NonEmpty<PartialResult<Q, Z>>
