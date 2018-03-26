@@ -34,9 +34,9 @@ sealed class Expr {
     data class Leaf(val value: TestToken) : Expr()
 }
 
-fun <L, R> Either<L, R>.assertRight() : R = (this as Either.Right<R>).right
-fun <L, R> Either<L, R>.assertLeft() : L = (this as Either.Left<L>).left
-fun <T> Chain<T>.assertHead() : T = (this as Chain.NonEmpty<T>).head
+fun <L, R> Either<L, R>.assertRight(): R = (this as Either.Right<R>).right
+fun <L, R> Either<L, R>.assertLeft(): L = (this as Either.Left<L>).left
+fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
     test("simple") {
@@ -54,8 +54,8 @@ class ParserTest : FunSpec({
 
     test("expression") {
 
-        var multRule : Rule<*, *>? = null
-        var exprRule : Rule<*, *>? = null
+        var multRule: Rule<*, *>? = null
+        var exprRule: Rule<*, *>? = null
 
         val parser = Parser.Builder {
             val grammar = object {
@@ -73,14 +73,14 @@ class ParserTest : FunSpec({
                             ) { _, expr, _ -> expr }
                     )
 
-                val term : Rule<TestToken, Expr> by lazy {
+                val term: Rule<TestToken, Expr> by lazy {
                     oneOf(
                             factor,
                             seq(factor, multOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
 
-                val expression : Rule<TestToken, Expr> by lazy {
+                val expression: Rule<TestToken, Expr> by lazy {
                     oneOf(
                             term,
                             seq(term, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
@@ -125,7 +125,7 @@ class ParserTest : FunSpec({
                 val addOp = isA(TestToken.AddOp::class)
                 val number = isA(TestToken.Integer::class).map(Expr::Leaf)
 
-                val expression : Rule<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+                val expression: Rule<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
                         number,
                         seq(L { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
                 ) }

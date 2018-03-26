@@ -35,8 +35,8 @@ typealias TokenConstructor<T> = (MatchResult) -> T
  * sequences concurrently.
  */
 class Tokenizer<P, T>(
-       private val posTracker: PositionTracker<P>,
-       vararg regexToToken: Pair<Regex, TokenConstructor<T>>
+    private val posTracker: PositionTracker<P>,
+    vararg regexToToken: Pair<Regex, TokenConstructor<T>>
 ) {
     private val patternsToHandlers =
         regexToToken.map { (regex, f) -> regex.toPattern() to f }.toList()
@@ -68,9 +68,10 @@ class Tokenizer<P, T>(
                         bestMatcherToHandler = matcherToHandler
                         bestLen = matchLen
                     } else if (bestMatcherToHandler != null && matchLen == bestLen) {
-                        TODO("Ambiguous tokenization: /${matcher.pattern().pattern()}/ and"
-                            + " /${bestMatcherToHandler.first.pattern().pattern()}/ both match $bestLen characters"
-                            + " at $pos")
+                        TODO(
+                            "Ambiguous tokenization: /${matcher.pattern().pattern()}/ and" +
+                            " /${bestMatcherToHandler.first.pattern().pattern()}/ both match $bestLen characters" +
+                            " at $pos")
                     }
                 }
             }

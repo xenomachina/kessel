@@ -19,9 +19,9 @@
 package com.xenomachina.parser
 
 data class Positioned<P, T>(
-        val start: P,
-        val value: T,
-        val end: P
+    val start: P,
+    val value: T,
+    val end: P
 )
 
 interface PositionTracker<P> {

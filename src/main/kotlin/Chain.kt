@@ -64,17 +64,17 @@ sealed class Chain<out T> : Functor<T> {
     abstract operator fun iterator(): Iterator<T>
 }
 
-operator fun <T> Chain<T>.plus(that: () -> Chain<T>) : Chain<T> =
+operator fun <T> Chain<T>.plus(that: () -> Chain<T>): Chain<T> =
     when (this) {
         // These look the same, but they dispatch to the more specifically-typed variants.
         is Chain.Empty -> this + that
         is Chain.NonEmpty<T> -> this + that
     }
 
-operator fun <T, R: Chain<T>> Chain.Empty.plus(that: () -> R) : R =
+operator fun <T, R : Chain<T>> Chain.Empty.plus(that: () -> R): R =
         that()
 
-operator fun <T> Chain.NonEmpty<T>.plus(that: () -> Chain<T>) : Chain.NonEmpty<T> =
+operator fun <T> Chain.NonEmpty<T>.plus(that: () -> Chain<T>): Chain.NonEmpty<T> =
         Chain.NonEmpty(head) { tail + that }
 
 fun <T> buildChain(builderAction: suspend SequenceBuilder<T>.() -> Unit): Chain<T> =

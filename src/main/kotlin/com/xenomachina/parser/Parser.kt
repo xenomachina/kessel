@@ -76,54 +76,54 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
             fun <T, R> L(inner: () -> Rule<T, R>): Rule<T, R> = LazyRule(inner)
 
             fun <T, A, B, Z> seq(
-                    ruleA: Rule<T, A>,
-                    ruleB: Rule<T, B>,
-                    constructor: (A, B) -> Z
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                constructor: (A, B) -> Z
             ): Rule<T, Z> = Sequence2Rule(ruleA, ruleB, constructor)
 
             fun <T, A, B, C, Z> seq(
-                    ruleA: Rule<T, A>,
-                    ruleB: Rule<T, B>,
-                    ruleC: Rule<T, C>,
-                    constructor: (A, B, C) -> Z
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                ruleC: Rule<T, C>,
+                constructor: (A, B, C) -> Z
             ): Rule<T, Z> = Sequence3Rule(ruleA, ruleB, ruleC, constructor)
 
             fun <T, A, B, C, D, Z> seq(
-                    ruleA: Rule<T, A>,
-                    ruleB: Rule<T, B>,
-                    ruleC: Rule<T, C>,
-                    ruleD: Rule<T, D>,
-                    constructor: (A, B, C, D) -> Z
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                ruleC: Rule<T, C>,
+                ruleD: Rule<T, D>,
+                constructor: (A, B, C, D) -> Z
             ): Rule<T, Z> = Sequence4Rule(ruleA, ruleB, ruleC, ruleD, constructor)
 
             fun <T, A, B, C, D, E, Z> seq(
-                    ruleA: Rule<T, A>,
-                    ruleB: Rule<T, B>,
-                    ruleC: Rule<T, C>,
-                    ruleD: Rule<T, D>,
-                    ruleE: Rule<T, E>,
-                    constructor: (A, B, C, D, E) -> Z
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                ruleC: Rule<T, C>,
+                ruleD: Rule<T, D>,
+                ruleE: Rule<T, E>,
+                constructor: (A, B, C, D, E) -> Z
             ): Rule<T, Z> = Sequence5Rule(ruleA, ruleB, ruleC, ruleD, ruleE, constructor)
 
             fun <T, A, B, C, D, E, F, Z> seq(
-                    ruleA: Rule<T, A>,
-                    ruleB: Rule<T, B>,
-                    ruleC: Rule<T, C>,
-                    ruleD: Rule<T, D>,
-                    ruleE: Rule<T, E>,
-                    ruleF: Rule<T, F>,
-                    constructor: (A, B, C, D, E, F) -> Z
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                ruleC: Rule<T, C>,
+                ruleD: Rule<T, D>,
+                ruleE: Rule<T, E>,
+                ruleF: Rule<T, F>,
+                constructor: (A, B, C, D, E, F) -> Z
             ): Rule<T, Z> = Sequence6Rule(ruleA, ruleB, ruleC, ruleD, ruleE, ruleF, constructor)
 
             fun <T, A, B, C, D, E, F, G, Z> seq(
-                    ruleA: Rule<T, A>,
-                    ruleB: Rule<T, B>,
-                    ruleC: Rule<T, C>,
-                    ruleD: Rule<T, D>,
-                    ruleE: Rule<T, E>,
-                    ruleF: Rule<T, F>,
-                    ruleG: Rule<T, G>,
-                    constructor: (A, B, C, D, E, F, G) -> Z
+                ruleA: Rule<T, A>,
+                ruleB: Rule<T, B>,
+                ruleC: Rule<T, C>,
+                ruleD: Rule<T, D>,
+                ruleE: Rule<T, E>,
+                ruleF: Rule<T, F>,
+                ruleG: Rule<T, G>,
+                constructor: (A, B, C, D, E, F, G) -> Z
             ): Rule<T, Z> = Sequence7Rule(ruleA, ruleB, ruleC, ruleD, ruleE, ruleF, ruleG, constructor)
 
             val END_OF_INPUT = com.xenomachina.parser.END_OF_INPUT

@@ -29,17 +29,17 @@ import java.util.IdentityHashMap
 import kotlin.coroutines.experimental.SequenceBuilder
 
 abstract class Rule<in T, out R> {
-    abstract internal fun <Q : T> partialParse(
-            consumed: Int,
-            // TODO: change breadcrumbs to use a Chain instead of Map?
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+    internal abstract fun <Q : T> partialParse(
+        consumed: Int,
+        // TODO: change breadcrumbs to use a Chain instead of Map?
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, R>>
 
     internal fun <Q : T> call(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, R>> {
         if (breadcrumbs.get(this) == consumed) {
             throw IllegalStateException("Left recursion detected")
@@ -49,20 +49,21 @@ abstract class Rule<in T, out R> {
     }
 
     internal abstract fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ): Properties?
 
     data class Properties(
-            val nullable: Boolean
+        val nullable: Boolean
     )
 }
 
 private inline fun Rule<*, *>.computeRulePropertiesHelper(
-        result: MutableMap<Rule<*, *>, Rule.Properties>,
-        seen: MutableMap<Rule<*, *>, Boolean>,
-        crossinline body: () -> Rule.Properties?): Rule.Properties? {
-    val props : Rule.Properties?
+    result: MutableMap<Rule<*, *>, Rule.Properties>,
+    seen: MutableMap<Rule<*, *>, Boolean>,
+    crossinline body: () -> Rule.Properties?
+): Rule.Properties? {
+    val props: Rule.Properties?
     if (seen.containsKey(this)) {
         props = result.get(this)
     } else {
@@ -74,46 +75,46 @@ private inline fun Rule<*, *>.computeRulePropertiesHelper(
     return props
 }
 
-fun <T, A, B> Rule<T, A>.map(transform: (A) -> B) : Rule<T, B> = MappingRule<T, A, B>(this, transform)
+fun <T, A, B> Rule<T, A>.map(transform: (A) -> B): Rule<T, B> = MappingRule<T, A, B>(this, transform)
 
 class MappingRule<T, A, B>(val original: Rule<T, A>, val transform: (A) -> B) : Rule<T, B>() {
     override fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ) = computeRulePropertiesHelper(result, seen) { original.computeRuleProperties(result, seen) }
 
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, B>> =
             original.call(consumed, breadcrumbs, chain).map { it.map(transform) }
 }
 
 class Epsilon<T> : Rule<T, Unit>() {
     override fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ) = Properties(nullable = true)
 
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Unit>> =
             chainOf(PartialResult( consumed, Either.Right(Unit), chain))
 }
 
 val END_OF_INPUT = object : Rule<Any?, Unit>() {
     override fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ) = Properties(nullable = false)
 
     override fun <Q> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Unit>> =
             when (chain) {
                 is Chain.Empty ->
@@ -129,14 +130,14 @@ val END_OF_INPUT = object : Rule<Any?, Unit>() {
 
 class Terminal<T>(val predicate: (T) -> Boolean) : Rule<T, T>() {
     override fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ) = Properties(nullable = false)
 
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, T>> =
             when (chain) {
                 is Chain.Empty ->
@@ -169,22 +170,22 @@ class LazyRule<T, R>(inner: () -> Rule<T, R>) : Rule<T, R>() {
     val inner by lazy(inner)
 
     override fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ) = computeRulePropertiesHelper(result, seen) { inner.computeRuleProperties(result, seen) }
 
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, R>> =
             this.inner.call(consumed, breadcrumbs, chain)
 }
 
 class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T, R>) : Rule<T, R>() {
     override fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ) = computeRulePropertiesHelper(result, seen) {
         val props1 = rule1.computeRuleProperties(result, seen)
         var nullable = props1?.nullable ?: false
@@ -198,11 +199,11 @@ class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T,
     private val rules = listOf(*rules)
 
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, R>> {
-        var result : Chain.NonEmpty<PartialResult<Q, R>> = rule1.call(consumed, breadcrumbs, chain)
+        var result: Chain.NonEmpty<PartialResult<Q, R>> = rule1.call(consumed, breadcrumbs, chain)
         for (parser in rules) {
             result = result + { parser.call(consumed, breadcrumbs, chain) }
         }
@@ -211,12 +212,12 @@ class AlternativeRule<T, R>(private val rule1: Rule<T, R>, vararg rules: Rule<T,
 }
 
 sealed class SequenceRule<T, Z> (
-        private val ruleA: Rule<T, *>,
-        private vararg val rules: Rule<T, *>
+    private val ruleA: Rule<T, *>,
+    private vararg val rules: Rule<T, *>
 ) : Rule<T, Z>() {
     override fun computeRuleProperties(
-            result: MutableMap<Rule<*, *>, Properties>,
-            seen: MutableMap<Rule<*, *>, Boolean>
+        result: MutableMap<Rule<*, *>, Properties>,
+        seen: MutableMap<Rule<*, *>, Boolean>
     ) = computeRulePropertiesHelper(result, seen) {
         val propsA = ruleA.computeRuleProperties(result, seen)
         var nullable = propsA?.nullable ?: false
@@ -229,14 +230,14 @@ sealed class SequenceRule<T, Z> (
 }
 
 class Sequence2Rule<T, A, B, Z>(
-        val ruleA: Rule<T, A>,
-        val ruleB: Rule<T, B>,
-        val constructor: (A, B) -> Z
+    val ruleA: Rule<T, A>,
+    val ruleB: Rule<T, B>,
+    val constructor: (A, B) -> Z
 ) : SequenceRule<T, Z>(ruleA, ruleB) {
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
     // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
@@ -251,15 +252,15 @@ class Sequence2Rule<T, A, B, Z>(
 }
 
 class Sequence3Rule<T, A, B, C, Z>(
-        val ruleA: Rule<T, A>,
-        val ruleB: Rule<T, B>,
-        val ruleC: Rule<T, C>,
-        val constructor: (A, B, C) -> Z
+    val ruleA: Rule<T, A>,
+    val ruleB: Rule<T, B>,
+    val ruleC: Rule<T, C>,
+    val constructor: (A, B, C) -> Z
 ) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
     // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
@@ -276,16 +277,16 @@ class Sequence3Rule<T, A, B, C, Z>(
 }
 
 class Sequence4Rule<T, A, B, C, D, Z>(
-        val ruleA: Rule<T, A>,
-        val ruleB: Rule<T, B>,
-        val ruleC: Rule<T, C>,
-        val ruleD: Rule<T, D>,
-        val constructor: (A, B, C, D) -> Z
+    val ruleA: Rule<T, A>,
+    val ruleB: Rule<T, B>,
+    val ruleC: Rule<T, C>,
+    val ruleD: Rule<T, D>,
+    val constructor: (A, B, C, D) -> Z
 ) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
     // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
@@ -303,17 +304,17 @@ class Sequence4Rule<T, A, B, C, D, Z>(
 }
 
 class Sequence5Rule<T, A, B, C, D, E, Z>(
-        val ruleA: Rule<T, A>,
-        val ruleB: Rule<T, B>,
-        val ruleC: Rule<T, C>,
-        val ruleD: Rule<T, D>,
-        val ruleE: Rule<T, E>,
-        val constructor: (A, B, C, D, E) -> Z
+    val ruleA: Rule<T, A>,
+    val ruleB: Rule<T, B>,
+    val ruleC: Rule<T, C>,
+    val ruleD: Rule<T, D>,
+    val ruleE: Rule<T, E>,
+    val constructor: (A, B, C, D, E) -> Z
 ) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
     // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
@@ -334,18 +335,18 @@ class Sequence5Rule<T, A, B, C, D, E, Z>(
 }
 
 class Sequence6Rule<T, A, B, C, D, E, F, Z>(
-        val ruleA: Rule<T, A>,
-        val ruleB: Rule<T, B>,
-        val ruleC: Rule<T, C>,
-        val ruleD: Rule<T, D>,
-        val ruleE: Rule<T, E>,
-        val ruleF: Rule<T, F>,
-        val constructor: (A, B, C, D, E, F) -> Z
+    val ruleA: Rule<T, A>,
+    val ruleB: Rule<T, B>,
+    val ruleC: Rule<T, C>,
+    val ruleD: Rule<T, D>,
+    val ruleE: Rule<T, E>,
+    val ruleF: Rule<T, F>,
+    val constructor: (A, B, C, D, E, F) -> Z
 ) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
     // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
@@ -368,19 +369,19 @@ class Sequence6Rule<T, A, B, C, D, E, F, Z>(
 }
 
 class Sequence7Rule<T, A, B, C, D, E, F, G, Z>(
-        val ruleA: Rule<T, A>,
-        val ruleB: Rule<T, B>,
-        val ruleC: Rule<T, C>,
-        val ruleD: Rule<T, D>,
-        val ruleE: Rule<T, E>,
-        val ruleF: Rule<T, F>,
-        val ruleG: Rule<T, G>,
-        val constructor: (A, B, C, D, E, F, G) -> Z
+    val ruleA: Rule<T, A>,
+    val ruleB: Rule<T, B>,
+    val ruleC: Rule<T, C>,
+    val ruleD: Rule<T, D>,
+    val ruleE: Rule<T, E>,
+    val ruleF: Rule<T, F>,
+    val ruleG: Rule<T, G>,
+    val constructor: (A, B, C, D, E, F, G) -> Z
 ) : SequenceRule<T, Z>(ruleA, ruleB, ruleC) {
     override fun <Q : T> partialParse(
-            consumed: Int,
-            breadcrumbs: Map<Rule<*, *>, Int>,
-            chain: Chain<Q>
+        consumed: Int,
+        breadcrumbs: Map<Rule<*, *>, Int>,
+        chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Z>> =
     // TODO: remove type params when Kotlin compiler can infer without crashing
             buildChain<PartialResult<Q, Z>> {
@@ -405,12 +406,12 @@ class Sequence7Rule<T, A, B, C, D, E, F, G, Z>(
 }
 
 // TODO: make this inline when inline lambda parameters of suspend function type are supported by Kotlin.
-private suspend fun <T, Z, Q: T, R> SequenceBuilder<PartialResult<Q, Z>>.forSequenceSubRule(
-        rule: Rule<T, R>,
-        consumed: Int,
-        breadcrumbs: Map<Rule<*, *>, Int>,
-        chain: Chain<Q>,
-        body: suspend SequenceBuilder<PartialResult<Q, Z>>.(PartialResult<Q, R>, R) -> Unit
+private suspend fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>.forSequenceSubRule(
+    rule: Rule<T, R>,
+    consumed: Int,
+    breadcrumbs: Map<Rule<*, *>, Int>,
+    chain: Chain<Q>,
+    body: suspend SequenceBuilder<PartialResult<Q, Z>>.(PartialResult<Q, R>, R) -> Unit
 ) {
     for (partial in rule.call(consumed, breadcrumbs, chain)) {
         when (partial.value) {
@@ -431,9 +432,9 @@ private suspend fun <T, Z, Q: T, R> SequenceBuilder<PartialResult<Q, Z>>.forSequ
  * @property remaining the remaining chain after the parsed value, or at the point of failure
  */
 internal data class PartialResult<out T, out R>(
-        val consumed: Int,
-        val value: Either<ParseError<T>, R>,
-        val remaining: Chain<T>
+    val consumed: Int,
+    val value: Either<ParseError<T>, R>,
+    val remaining: Chain<T>
 ) : Functor<R> {
     override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
 }
