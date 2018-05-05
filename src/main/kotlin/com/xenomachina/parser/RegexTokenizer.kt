@@ -31,8 +31,18 @@ typealias TokenConstructor<T> = (MatchResult) -> T
  * A `Tokenizer` converts a [CharSequence] into a [Sequence] of tokens.
  */
 interface Tokenizer<T> {
+    /**
+     * Tokenize chars, keeping track of position.
+     */
     fun <P> tokenize(positionTracker: PositionTracker<P>, chars: CharSequence): Sequence<Positioned<P, T>>
+
+    /**
+     * Tokenize chars.
+     */
+    fun <T> Tokenizer<T>.tokenize(chars: CharSequence): Sequence<T> =
+        tokenize(NoOpPositionTracker, chars).map { it.value }
 }
+
 
 /**
  * A `RegexTokenizer` acts as a mapping from [Regex] objects to [TokenConstructor] objects.

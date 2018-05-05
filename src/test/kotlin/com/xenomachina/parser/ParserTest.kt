@@ -41,7 +41,7 @@ fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 class ParserTest : FunSpec({
     test("simple") {
         val parser = Parser.Builder {
-            seq(isA<MathToken.Integer>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
+            seq(isA<MathToken.IntLiteral>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
         parser.parse(tokenChain("5")) shouldEqual Either.Right(5)
@@ -64,7 +64,7 @@ class ParserTest : FunSpec({
                 val addOp = isA<MathToken.AddOp>()
 
                 val factor = oneOf(
-                            isA<MathToken.Integer>().map(Expr::Leaf),
+                            isA<MathToken.IntLiteral>().map(Expr::Leaf),
                             isA<MathToken.Identifier>().map(Expr::Leaf),
                             seq(
                                     isA<MathToken.OpenParen>(),
@@ -109,7 +109,7 @@ class ParserTest : FunSpec({
 
         // 5
         ast.left.left as Expr.Leaf
-        ast.left.left.value as MathToken.Integer
+        ast.left.left.value as MathToken.IntLiteral
         ast.left.left.value.value shouldEqual 5
 
         // (3 + 7)
@@ -122,7 +122,7 @@ class ParserTest : FunSpec({
         val parser = Parser.Builder {
             val grammar = object {
                 val addOp = isA<MathToken.AddOp>()
-                val number = isA<MathToken.Integer>().map(Expr::Leaf)
+                val number = isA<MathToken.IntLiteral>().map(Expr::Leaf)
 
                 val expression: Rule<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
                         number,
@@ -148,7 +148,7 @@ class ParserTest : FunSpec({
 //            val addOp = isA<MathToken.AddOp>()
 //
 //            val factor : Parser<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
-//                    isA<MathToken.Integer>().map(Expr::Leaf),
+//                    isA<MathToken.IntLiteral>().map(Expr::Leaf),
 //                    isA<MathToken.Identifier>().map(Expr::Leaf),
 //                    seq(
 //                            isA<MathToken.OpenParen>(),
