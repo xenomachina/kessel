@@ -47,7 +47,7 @@ class ParserTest : FunSpec({
         parser.parse(tokenChain("5")) shouldEqual Either.Right(5)
 
         parser.parse(tokenChain("hello")).assertLeft().first().message
-                .shouldEqual("Unexpected: Identifier(value=hello)")
+                .shouldEqual("Unexpected: Identifier(name=hello)")
     }
 
     // TODO: add test where nullable is true
@@ -100,22 +100,22 @@ class ParserTest : FunSpec({
         val ast = parser.parse(tokenChain("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
         ast as Expr.Op
         ast.op as MathToken.AddOp
-        ast.op.value shouldEqual "-"
+        ast.op.name shouldEqual "-"
 
         // 5 * (3 + 7)
         ast.left as Expr.Op
         ast.left.op as MathToken.MultOp
-        ast.left.op.value shouldEqual "*"
+        ast.left.op.name shouldEqual "*"
 
         // 5
         ast.left.left as Expr.Leaf
         ast.left.left.value as MathToken.Integer
-        ast.left.left.value.value shouldEqual "5"
+        ast.left.left.value.value shouldEqual 5
 
         // (3 + 7)
         ast.left.right as Expr.Op
         ast.left.right.op as MathToken.AddOp
-        ast.left.right.op.value shouldEqual "+"
+        ast.left.right.op.name shouldEqual "+"
     }
 
     test("simple left recursion") {

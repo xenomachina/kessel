@@ -28,13 +28,19 @@ import kotlin.coroutines.experimental.buildSequence
 typealias TokenConstructor<T> = (MatchResult) -> T
 
 /**
- * A Tokenizer converts a [CharSequence] into a [Sequence] of tokens. It acts
- * as a mapping from [Regex] objects to [TokenConstructor] objects.
- *
- * A Tokenizer is stateless and renetrant. It is safe to reuse a Tokenizer or even use a single Tokenizer on multiple
- * sequences concurrently.
+ * A `Tokenizer` converts a [CharSequence] into a [Sequence] of tokens.
  */
-class Tokenizer<P, T>(
+interface Tokenizer<P, T> {
+    fun tokenize(s: CharSequence): Sequence<Positioned<P, T>>
+}
+
+/**
+ * A `RegexTokenizer` acts as a mapping from [Regex] objects to [TokenConstructor] objects.
+ *
+ * A `RegexTokenizer` is stateless and reentrant. It is safe to reuse an instance of `RegexTokenizer`, or even to use
+ * it on multiple sequences concurrently.
+ */
+class RegexTokenizer<P, T>(
     private val posTracker: PositionTracker<P>,
     vararg regexToToken: Pair<Regex, TokenConstructor<T>>
 ) {

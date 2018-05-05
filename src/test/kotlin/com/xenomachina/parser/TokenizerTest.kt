@@ -27,27 +27,27 @@ internal fun <T> Sequence<T>.shouldContain(vararg expected: T) {
 }
 
 sealed class MathToken {
-    data class Identifier(override val value: String) : MathToken()
-    data class Integer(override val value: String) : MathToken()
-    data class Float(override val value: String) : MathToken()
-    data class Space(override val value: String) : MathToken()
-    data class MultOp(override val value: String) : MathToken()
-    data class AddOp(override val value: String) : MathToken()
-    data class OpenParen(override val value: String) : MathToken()
-    data class CloseParen(override val value: String) : MathToken()
-    abstract val value: String
+    data class Identifier(val name: String) : MathToken()
+    data class Integer(val value: Int) : MathToken()
+    data class Float(val value: Double) : MathToken()
+    data class Space(val spaces: String) : MathToken()
+    data class MultOp(val name: String) : MathToken()
+    data class AddOp(val name: String) : MathToken()
+
+    object OpenParen : MathToken()
+    object CloseParen : MathToken()
 }
 
-val TEST_TOKENIZER = Tokenizer<Int, MathToken>(
+val TEST_TOKENIZER = RegexTokenizer<Int, MathToken>(
     CharOffsetTracker(),
     Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> MathToken.Identifier(m.group()) },
-    Regex("\\d+") to { m -> MathToken.Integer(m.group()) },
-    Regex("\\d*\\.\\d") to { m -> MathToken.Float(m.group()) },
+    Regex("\\d+") to { m -> MathToken.Integer(m.group().toInt()) },
+    Regex("\\d*\\.\\d") to { m -> MathToken.Float(m.group().toDouble()) },
     Regex("\\s+") to { m -> MathToken.Space(m.group()) },
     Regex("[*/]") to { m -> MathToken.MultOp(m.group()) },
     Regex("[-+]") to { m -> MathToken.AddOp(m.group()) },
-    Regex("\\(") to { m -> MathToken.OpenParen(m.group()) },
-    Regex("\\)") to { m -> MathToken.CloseParen(m.group()) }
+    Regex("\\(") to { _ -> MathToken.OpenParen },
+    Regex("\\)") to { _ -> MathToken.CloseParen }
 )
 
 class TokenizerTest : FunSpec({
@@ -58,15 +58,15 @@ class TokenizerTest : FunSpec({
                 Positioned(3, MathToken.Space(" "), 4),
                 Positioned(4, MathToken.Identifier("bar"), 7),
                 Positioned(7, MathToken.Space(" "), 8),
-                Positioned(8, MathToken.Integer("123"), 11),
+                Positioned(8, MathToken.Integer(123), 11),
                 Positioned(11, MathToken.Space(" "), 12),
                 Positioned(12, MathToken.Identifier("baz789"), 18),
                 Positioned(18, MathToken.Space(" "), 19),
-                Positioned(19, MathToken.Float("45.6"), 23),
+                Positioned(19, MathToken.Float(45.6), 23),
                 Positioned(23, MathToken.Space(" "), 24),
-                Positioned(24, MathToken.Integer("45"), 26),
+                Positioned(24, MathToken.Integer(45), 26),
                 Positioned(26, MathToken.Space(" "), 27),
-                Positioned(27, MathToken.Float(".6"), 29),
+                Positioned(27, MathToken.Float(.6), 29),
                 Positioned(29, MathToken.Space(" "), 30),
                 Positioned(30, MathToken.Identifier("hello"), 35)
         )
