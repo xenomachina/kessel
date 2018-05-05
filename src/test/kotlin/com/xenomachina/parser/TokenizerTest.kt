@@ -39,15 +39,15 @@ sealed class MathToken {
 }
 
 val TEST_TOKENIZER = Tokenizer<Int, MathToken>(
-        CharOffsetTracker(),
-        Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> MathToken.Identifier(m.group()) },
-        Regex("\\d+") to { m -> MathToken.Integer(m.group()) },
-        Regex("\\d*\\.\\d") to { m -> MathToken.Float(m.group()) },
-        Regex("\\s+") to { m -> MathToken.Space(m.group()) },
-        Regex("[*/]") to { m -> MathToken.MultOp(m.group()) },
-        Regex("[-+]") to { m -> MathToken.AddOp(m.group()) },
-        Regex("\\(") to { m -> MathToken.OpenParen(m.group()) },
-        Regex("\\)") to { m -> MathToken.CloseParen(m.group()) }
+    CharOffsetTracker(),
+    Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> MathToken.Identifier(m.group()) },
+    Regex("\\d+") to { m -> MathToken.Integer(m.group()) },
+    Regex("\\d*\\.\\d") to { m -> MathToken.Float(m.group()) },
+    Regex("\\s+") to { m -> MathToken.Space(m.group()) },
+    Regex("[*/]") to { m -> MathToken.MultOp(m.group()) },
+    Regex("[-+]") to { m -> MathToken.AddOp(m.group()) },
+    Regex("\\(") to { m -> MathToken.OpenParen(m.group()) },
+    Regex("\\)") to { m -> MathToken.CloseParen(m.group()) }
 )
 
 class TokenizerTest : FunSpec({

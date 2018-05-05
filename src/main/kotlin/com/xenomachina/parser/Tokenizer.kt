@@ -38,9 +38,6 @@ class Tokenizer<P, T>(
     private val posTracker: PositionTracker<P>,
     vararg regexToToken: Pair<Regex, TokenConstructor<T>>
 ) {
-    private val patternsToHandlers =
-        regexToToken.map { (regex, f) -> regex.toPattern() to f }.toList()
-
     /**
      * Converts the specified [CharSequence] into a [Sequence] of tokens of
      * type `T`. Starting at the beginning of the `CharSequence`, each `Regex`
@@ -86,4 +83,7 @@ class Tokenizer<P, T>(
             }
         }
     }
+
+    private val patternsToHandlers =
+        regexToToken.map { (regex, f) -> regex.toPattern() to f }.toList()
 }

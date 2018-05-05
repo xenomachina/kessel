@@ -54,8 +54,8 @@ class ParserTest : FunSpec({
 
     test("expression") {
 
-        var multRule: Rule<*, *>? = null
-        var exprRule: Rule<*, *>? = null
+        lateinit var multRule: Rule<*, *>
+        lateinit var exprRule: Rule<*, *>
 
         val parser = Parser.Builder {
             val grammar = object {
@@ -86,17 +86,16 @@ class ParserTest : FunSpec({
                             seq(term, addOp, recur { expression }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
-                init {
-                    multRule = multOp
-                    exprRule = expression
-                }
             }
+
+            multRule = grammar.multOp
+            exprRule = grammar.expression
 
             seq(grammar.expression, END_OF_INPUT) { expr, _ -> expr }
         }.build()
 
-        parser.ruleProps[multRule!!]!!.nullable shouldEqual false
-        parser.ruleProps[exprRule!!]!!.nullable shouldEqual false
+        parser.ruleProps[multRule]!!.nullable shouldEqual false
+        parser.ruleProps[exprRule]!!.nullable shouldEqual false
 
         val ast = parser.parse(tokenChain("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
         ast as Expr.Op
