@@ -27,11 +27,11 @@ import io.kotlintest.specs.FunSpec
 
 private fun tokenChain(s: String) = TEST_TOKENIZER.tokenize(s)
         .map { it.value }
-        .filter { !(it is TestToken.Space) }.asChain()
+        .filter { !(it is MathToken.Space) }.asChain()
 
 sealed class Expr {
-    data class Op(val left: Expr, val op: TestToken, val right: Expr) : Expr()
-    data class Leaf(val value: TestToken) : Expr()
+    data class Op(val left: Expr, val op: MathToken, val right: Expr) : Expr()
+    data class Leaf(val value: MathToken) : Expr()
 }
 
 fun <L, R> Either<L, R>.assertRight(): R = (this as Either.Right<R>).right
@@ -41,7 +41,7 @@ fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 class ParserTest : FunSpec({
     test("simple") {
         val parser = Parser.Builder {
-            seq(isA<TestToken.Integer>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
+            seq(isA<MathToken.Integer>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
         parser.parse(tokenChain("5")) shouldEqual Either.Right(5)
@@ -59,28 +59,28 @@ class ParserTest : FunSpec({
 
         val parser = Parser.Builder {
             val grammar = object {
-                val multOp = isA<TestToken.MultOp>()
+                val multOp = isA<MathToken.MultOp>()
 
-                val addOp = isA<TestToken.AddOp>()
+                val addOp = isA<MathToken.AddOp>()
 
                 val factor = oneOf(
-                            isA<TestToken.Integer>().map(Expr::Leaf),
-                            isA<TestToken.Identifier>().map(Expr::Leaf),
+                            isA<MathToken.Integer>().map(Expr::Leaf),
+                            isA<MathToken.Identifier>().map(Expr::Leaf),
                             seq(
-                                    isA<TestToken.OpenParen>(),
+                                    isA<MathToken.OpenParen>(),
                                     recur { expression },
-                                    isA<TestToken.CloseParen>()
+                                    isA<MathToken.CloseParen>()
                             ) { _, expr, _ -> expr }
                     )
 
-                val term: Rule<TestToken, Expr> by lazy {
+                val term: Rule<MathToken, Expr> by lazy {
                     oneOf(
                             factor,
                             seq(factor, multOp, recur { term }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
 
-                val expression: Rule<TestToken, Expr> by lazy {
+                val expression: Rule<MathToken, Expr> by lazy {
                     oneOf(
                             term,
                             seq(term, addOp, recur { expression }) { l, op, r -> Expr.Op(l, op, r) }
@@ -100,32 +100,32 @@ class ParserTest : FunSpec({
 
         val ast = parser.parse(tokenChain("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
         ast as Expr.Op
-        ast.op as TestToken.AddOp
+        ast.op as MathToken.AddOp
         ast.op.value shouldEqual "-"
 
         // 5 * (3 + 7)
         ast.left as Expr.Op
-        ast.left.op as TestToken.MultOp
+        ast.left.op as MathToken.MultOp
         ast.left.op.value shouldEqual "*"
 
         // 5
         ast.left.left as Expr.Leaf
-        ast.left.left.value as TestToken.Integer
+        ast.left.left.value as MathToken.Integer
         ast.left.left.value.value shouldEqual "5"
 
         // (3 + 7)
         ast.left.right as Expr.Op
-        ast.left.right.op as TestToken.AddOp
+        ast.left.right.op as MathToken.AddOp
         ast.left.right.op.value shouldEqual "+"
     }
 
     test("simple left recursion") {
         val parser = Parser.Builder {
             val grammar = object {
-                val addOp = isA<TestToken.AddOp>()
-                val number = isA<TestToken.Integer>().map(Expr::Leaf)
+                val addOp = isA<MathToken.AddOp>()
+                val number = isA<MathToken.Integer>().map(Expr::Leaf)
 
-                val expression: Rule<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+                val expression: Rule<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
                         number,
                         seq(recur { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
                 ) }
@@ -144,26 +144,26 @@ class ParserTest : FunSpec({
     // TODO: support left recursion, and re-enable this test
 //    test("left_recursion") {
 //        val grammar = object {
-//            val multOp = isA<TestToken.MultOp>()
+//            val multOp = isA<MathToken.MultOp>()
 //
-//            val addOp = isA<TestToken.AddOp>()
+//            val addOp = isA<MathToken.AddOp>()
 //
-//            val factor : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
-//                    isA<TestToken.Integer>().map(Expr::Leaf),
-//                    isA<TestToken.Identifier>().map(Expr::Leaf),
+//            val factor : Parser<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
+//                    isA<MathToken.Integer>().map(Expr::Leaf),
+//                    isA<MathToken.Identifier>().map(Expr::Leaf),
 //                    seq(
-//                            isA<TestToken.OpenParen>(),
+//                            isA<MathToken.OpenParen>(),
 //                            L { expression },
-//                            isA<TestToken.CloseParen>()
+//                            isA<MathToken.CloseParen>()
 //                    ) { _, expr, _ -> expr }
 //            ) }
 //
-//            val term : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+//            val term : Parser<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
 //                    factor,
 //                    seq(L { term }, multOp, L { factor }) { l, op, r -> Expr.Op(l, op, r) }
 //            ) }
 //
-//            val expression : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
+//            val expression : Parser<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
 //                    term,
 //                    seq(L { expression }, addOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
 //            ) }

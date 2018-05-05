@@ -26,49 +26,49 @@ internal fun <T> Sequence<T>.shouldContain(vararg expected: T) {
     toList() shouldBe expected.toList()
 }
 
-sealed class TestToken {
-    data class Identifier(override val value: String) : TestToken()
-    data class Integer(override val value: String) : TestToken()
-    data class Float(override val value: String) : TestToken()
-    data class Space(override val value: String) : TestToken()
-    data class MultOp(override val value: String) : TestToken()
-    data class AddOp(override val value: String) : TestToken()
-    data class OpenParen(override val value: String) : TestToken()
-    data class CloseParen(override val value: String) : TestToken()
+sealed class MathToken {
+    data class Identifier(override val value: String) : MathToken()
+    data class Integer(override val value: String) : MathToken()
+    data class Float(override val value: String) : MathToken()
+    data class Space(override val value: String) : MathToken()
+    data class MultOp(override val value: String) : MathToken()
+    data class AddOp(override val value: String) : MathToken()
+    data class OpenParen(override val value: String) : MathToken()
+    data class CloseParen(override val value: String) : MathToken()
     abstract val value: String
 }
 
-val TEST_TOKENIZER = Tokenizer<Int, TestToken>(
+val TEST_TOKENIZER = Tokenizer<Int, MathToken>(
         CharOffsetTracker(),
-        Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> TestToken.Identifier(m.group()) },
-        Regex("\\d+") to { m -> TestToken.Integer(m.group()) },
-        Regex("\\d*\\.\\d") to { m -> TestToken.Float(m.group()) },
-        Regex("\\s+") to { m -> TestToken.Space(m.group()) },
-        Regex("[*/]") to { m -> TestToken.MultOp(m.group()) },
-        Regex("[-+]") to { m -> TestToken.AddOp(m.group()) },
-        Regex("\\(") to { m -> TestToken.OpenParen(m.group()) },
-        Regex("\\)") to { m -> TestToken.CloseParen(m.group()) }
+        Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> MathToken.Identifier(m.group()) },
+        Regex("\\d+") to { m -> MathToken.Integer(m.group()) },
+        Regex("\\d*\\.\\d") to { m -> MathToken.Float(m.group()) },
+        Regex("\\s+") to { m -> MathToken.Space(m.group()) },
+        Regex("[*/]") to { m -> MathToken.MultOp(m.group()) },
+        Regex("[-+]") to { m -> MathToken.AddOp(m.group()) },
+        Regex("\\(") to { m -> MathToken.OpenParen(m.group()) },
+        Regex("\\)") to { m -> MathToken.CloseParen(m.group()) }
 )
 
 class TokenizerTest : FunSpec({
     test("simple") {
 
         TEST_TOKENIZER.tokenize("foo bar 123 baz789 45.6 45 .6 hello").shouldContain(
-                Positioned(0, TestToken.Identifier("foo"), 3),
-                Positioned(3, TestToken.Space(" "), 4),
-                Positioned(4, TestToken.Identifier("bar"), 7),
-                Positioned(7, TestToken.Space(" "), 8),
-                Positioned(8, TestToken.Integer("123"), 11),
-                Positioned(11, TestToken.Space(" "), 12),
-                Positioned(12, TestToken.Identifier("baz789"), 18),
-                Positioned(18, TestToken.Space(" "), 19),
-                Positioned(19, TestToken.Float("45.6"), 23),
-                Positioned(23, TestToken.Space(" "), 24),
-                Positioned(24, TestToken.Integer("45"), 26),
-                Positioned(26, TestToken.Space(" "), 27),
-                Positioned(27, TestToken.Float(".6"), 29),
-                Positioned(29, TestToken.Space(" "), 30),
-                Positioned(30, TestToken.Identifier("hello"), 35)
+                Positioned(0, MathToken.Identifier("foo"), 3),
+                Positioned(3, MathToken.Space(" "), 4),
+                Positioned(4, MathToken.Identifier("bar"), 7),
+                Positioned(7, MathToken.Space(" "), 8),
+                Positioned(8, MathToken.Integer("123"), 11),
+                Positioned(11, MathToken.Space(" "), 12),
+                Positioned(12, MathToken.Identifier("baz789"), 18),
+                Positioned(18, MathToken.Space(" "), 19),
+                Positioned(19, MathToken.Float("45.6"), 23),
+                Positioned(23, MathToken.Space(" "), 24),
+                Positioned(24, MathToken.Integer("45"), 26),
+                Positioned(26, MathToken.Space(" "), 27),
+                Positioned(27, MathToken.Float(".6"), 29),
+                Positioned(29, MathToken.Space(" "), 30),
+                Positioned(30, MathToken.Identifier("hello"), 35)
         )
     }
 })
