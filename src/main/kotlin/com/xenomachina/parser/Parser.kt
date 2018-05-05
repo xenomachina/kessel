@@ -68,7 +68,7 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 return terminal<Any> { javaClass.isInstance(it) }.map { javaClass.cast(it) }
             }
 
-            fun <T> terminal(predicate: (T) -> Boolean) = Terminal<T>(predicate)
+            fun <T> terminal(predicate: (T) -> Boolean) = Terminal(predicate)
 
             fun <T, R> oneOf(rule1: Rule<T, R>, vararg rules: Rule<T, R>) = AlternativeRule(rule1, *rules)
 
