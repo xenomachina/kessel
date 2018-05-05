@@ -24,11 +24,11 @@ buildscript {
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:$dokka_version"
-        classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:$gradle_bintray_version"
     }
 }
 
 plugins {
+    id 'com.palantir.git-version' version '0.11.0'
     id 'org.jmailen.kotlinter' version '1.12.0'
 }
 
@@ -42,10 +42,10 @@ apply plugin: 'maven-publish'
 kotlin { experimental { coroutines 'enable' } }
 
 assert name == 'kessel'
-description = "Parser combinators for Kotlin"
-
-
 group 'com.xenomachina'
+description = "Parser combinators for Kotlin"
+version = gitVersion()
+
 project.ext {
     githubUser = "xenomachina"
     vcsDev = "https://github.com/$githubUser"
@@ -114,13 +114,13 @@ task javadocJar(type: Jar, dependsOn: dokkaJavadoc) {
     from javadoc.destinationDir
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
+task sourceJar(type: Jar, dependsOn: classes) {
     classifier = 'sources'
     from sourceSets.main.allSource
 }
 
 artifacts {
-    archives javadocJar, sourcesJar
+    archives javadocJar, sourceJar
 }
 
 if (System.env.CI != "true") {
