@@ -1,4 +1,4 @@
-// Copyright © 2017 Laurence Gonsalves
+// Copyright © 2017 - 2018 Laurence Gonsalves
 //
 // This file is part of kessel, a library which can be found at
 // http://github.com/xenomachina/kessel
@@ -18,19 +18,18 @@
 
 buildscript {
     repositories {
-        jcenter()
+        mavenCentral()
     }
 
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:$dokka_version"
         classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:$gradle_bintray_version"
-        classpath "net.researchgate:gradle-release:$gradle_release_version"
     }
 }
 
 plugins {
-    id 'org.jmailen.kotlinter' version '1.10.0'
+    id 'org.jmailen.kotlinter' version '1.12.0'
 }
 
 apply plugin: 'maven'
