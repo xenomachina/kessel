@@ -21,7 +21,6 @@ package com.xenomachina.parser
 import com.xenomachina.chain.Chain
 import com.xenomachina.common.Either
 import java.util.IdentityHashMap
-import kotlin.reflect.KClass
 
 class Parser<in T, out R>(private val start: Rule<T, R>) {
     val ruleProps = computeRuleProperties()
@@ -64,8 +63,8 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
         fun build(): Parser<T, R> = Parser(body(Companion))
 
         companion object {
-            fun <T : Any> isA(kclass: KClass<T>): Rule<Any, T> {
-                val javaClass = kclass.java
+            inline fun <reified T : Any> isA(): Rule<Any, T> {
+                val javaClass = T::class.java
                 return terminal<Any> { javaClass.isInstance(it) }.map { javaClass.cast(it) }
             }
 
@@ -73,7 +72,7 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
 
             fun <T, R> oneOf(rule1: Rule<T, R>, vararg rules: Rule<T, R>) = AlternativeRule(rule1, *rules)
 
-            fun <T, R> L(inner: () -> Rule<T, R>): Rule<T, R> = LazyRule(inner)
+            fun <T, R> recur(inner: () -> Rule<T, R>): Rule<T, R> = LazyRule(inner)
 
             fun <T, A, B, Z> seq(
                 ruleA: Rule<T, A>,

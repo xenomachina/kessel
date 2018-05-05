@@ -18,9 +18,9 @@
 
 package com.xenomachina.parser
 
-import com.xenomachina.common.Either
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.asChain
+import com.xenomachina.common.Either
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FunSpec
@@ -41,7 +41,7 @@ fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 class ParserTest : FunSpec({
     test("simple") {
         val parser = Parser.Builder {
-            seq(isA(TestToken.Integer::class), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
+            seq(isA<TestToken.Integer>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
         parser.parse(tokenChain("5")) shouldEqual Either.Right(5)
@@ -59,31 +59,31 @@ class ParserTest : FunSpec({
 
         val parser = Parser.Builder {
             val grammar = object {
-                val multOp = isA(TestToken.MultOp::class)
+                val multOp = isA<TestToken.MultOp>()
 
-                val addOp = isA(TestToken.AddOp::class)
+                val addOp = isA<TestToken.AddOp>()
 
                 val factor = oneOf(
-                            isA(TestToken.Integer::class).map(Expr::Leaf),
-                            isA(TestToken.Identifier::class).map(Expr::Leaf),
+                            isA<TestToken.Integer>().map(Expr::Leaf),
+                            isA<TestToken.Identifier>().map(Expr::Leaf),
                             seq(
-                                    isA(TestToken.OpenParen::class),
-                                    L { expression },
-                                    isA(TestToken.CloseParen::class)
+                                    isA<TestToken.OpenParen>(),
+                                    recur { expression },
+                                    isA<TestToken.CloseParen>()
                             ) { _, expr, _ -> expr }
                     )
 
                 val term: Rule<TestToken, Expr> by lazy {
                     oneOf(
                             factor,
-                            seq(factor, multOp, L { term }) { l, op, r -> Expr.Op(l, op, r) }
+                            seq(factor, multOp, recur { term }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
 
                 val expression: Rule<TestToken, Expr> by lazy {
                     oneOf(
                             term,
-                            seq(term, addOp, L { expression }) { l, op, r -> Expr.Op(l, op, r) }
+                            seq(term, addOp, recur { expression }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
                 init {
@@ -122,12 +122,12 @@ class ParserTest : FunSpec({
     test("simple left recursion") {
         val parser = Parser.Builder {
             val grammar = object {
-                val addOp = isA(TestToken.AddOp::class)
-                val number = isA(TestToken.Integer::class).map(Expr::Leaf)
+                val addOp = isA<TestToken.AddOp>()
+                val number = isA<TestToken.Integer>().map(Expr::Leaf)
 
                 val expression: Rule<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
                         number,
-                        seq(L { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
+                        seq(recur { expression }, addOp, number) { l, op, r -> Expr.Op(l, op, r) }
                 ) }
             }
             seq(grammar.expression, END_OF_INPUT) { expr, _ -> expr }
@@ -144,17 +144,17 @@ class ParserTest : FunSpec({
     // TODO: support left recursion, and re-enable this test
 //    test("left_recursion") {
 //        val grammar = object {
-//            val multOp = isA(TestToken.MultOp::class)
+//            val multOp = isA<TestToken.MultOp>()
 //
-//            val addOp = isA(TestToken.AddOp::class)
+//            val addOp = isA<TestToken.AddOp>()
 //
 //            val factor : Parser<TestToken, Expr> by lazy { oneOf<TestToken, Expr>(
-//                    isA(TestToken.Integer::class).map(Expr::Leaf),
-//                    isA(TestToken.Identifier::class).map(Expr::Leaf),
+//                    isA<TestToken.Integer>().map(Expr::Leaf),
+//                    isA<TestToken.Identifier>().map(Expr::Leaf),
 //                    seq(
-//                            isA(TestToken.OpenParen::class),
+//                            isA<TestToken.OpenParen>(),
 //                            L { expression },
-//                            isA(TestToken.CloseParen::class)
+//                            isA<TestToken.CloseParen>()
 //                    ) { _, expr, _ -> expr }
 //            ) }
 //
