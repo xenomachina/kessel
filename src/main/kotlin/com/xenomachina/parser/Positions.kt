@@ -29,7 +29,18 @@ interface PositionTracker<P> {
     fun next(current: P, s: CharSequence): P
 }
 
-class CharOffsetTracker : PositionTracker<Int> {
+/**
+ * A `PositionTracker` that doesn't track anything.
+ */
+object NoOpPositionTracker : PositionTracker<Unit> {
+    override fun start() {}
+    override fun next(current: Unit, s: CharSequence) {}
+}
+
+/**
+ * A `PositionTracker` that just tracks character offset.
+ */
+object CharOffsetTracker : PositionTracker<Int> {
     override fun start(): Int = 0
     override fun next(current: Int, s: CharSequence) = current + s.length
 }

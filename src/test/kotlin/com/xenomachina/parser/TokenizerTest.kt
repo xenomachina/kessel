@@ -38,8 +38,7 @@ sealed class MathToken {
     object CloseParen : MathToken()
 }
 
-val TEST_TOKENIZER = RegexTokenizer<Int, MathToken>(
-    CharOffsetTracker(),
+val MATH_TOKENIZER = RegexTokenizer<MathToken>(
     Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> MathToken.Identifier(m.group()) },
     Regex("\\d+") to { m -> MathToken.Integer(m.group().toInt()) },
     Regex("\\d*\\.\\d") to { m -> MathToken.Float(m.group().toDouble()) },
@@ -53,7 +52,7 @@ val TEST_TOKENIZER = RegexTokenizer<Int, MathToken>(
 class TokenizerTest : FunSpec({
     test("simple") {
 
-        TEST_TOKENIZER.tokenize("foo bar 123 baz789 45.6 45 .6 hello").shouldContain(
+        MATH_TOKENIZER.tokenize(CharOffsetTracker, "foo bar 123 baz789 45.6 45 .6 hello").shouldContain(
                 Positioned(0, MathToken.Identifier("foo"), 3),
                 Positioned(3, MathToken.Space(" "), 4),
                 Positioned(4, MathToken.Identifier("bar"), 7),

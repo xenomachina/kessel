@@ -30,8 +30,8 @@ typealias TokenConstructor<T> = (MatchResult) -> T
 /**
  * A `Tokenizer` converts a [CharSequence] into a [Sequence] of tokens.
  */
-interface Tokenizer<P, T> {
-    fun tokenize(s: CharSequence): Sequence<Positioned<P, T>>
+interface Tokenizer<T> {
+    fun <P> tokenize(positionTracker: PositionTracker<P>, chars: CharSequence): Sequence<Positioned<P, T>>
 }
 
 /**
@@ -40,10 +40,9 @@ interface Tokenizer<P, T> {
  * A `RegexTokenizer` is stateless and reentrant. It is safe to reuse an instance of `RegexTokenizer`, or even to use
  * it on multiple sequences concurrently.
  */
-class RegexTokenizer<P, T>(
-    private val posTracker: PositionTracker<P>,
+class RegexTokenizer<T>(
     vararg regexToToken: Pair<Regex, TokenConstructor<T>>
-) {
+): Tokenizer<T> {
     /**
      * Converts the specified [CharSequence] into a [Sequence] of tokens of
      * type `T`. Starting at the beginning of the `CharSequence`, each `Regex`
@@ -51,13 +50,13 @@ class RegexTokenizer<P, T>(
      * longest match is used to construct a token. It then advances to the next
      * position in the `CharSequence`.
      */
-    fun tokenize(s: CharSequence): Sequence<Positioned<P, T>> = buildSequence {
+    override fun <P> tokenize(positionTracker: PositionTracker<P>, chars: CharSequence): Sequence<Positioned<P, T>> = buildSequence {
         // TODO: add priorities?
-        val length = s.length
-        val matchersToHandlers = patternsToHandlers.map { (pattern, f) -> pattern.matcher(s) to f }
+        val length = chars.length
+        val matchersToHandlers = patternsToHandlers.map { (pattern, f) -> pattern.matcher(chars) to f }
 
         var index = 0
-        var pos = posTracker.start()
+        var pos = positionTracker.start()
         while (index < length) {
             var bestMatcherToHandler: Pair<Matcher, TokenConstructor<T>>? = null
             var bestLen = 0
@@ -82,7 +81,7 @@ class RegexTokenizer<P, T>(
                 TODO("add fallback handling")
             } else {
                 val (matcher, handler) = bestMatcherToHandler
-                val nextPos = posTracker.next(pos, matcher.group())
+                val nextPos = positionTracker.next(pos, matcher.group())
                 yield(Positioned(pos, handler(matcher.toMatchResult()), nextPos))
                 pos = nextPos
                 index += bestLen

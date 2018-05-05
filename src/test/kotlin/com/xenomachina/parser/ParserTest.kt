@@ -25,7 +25,7 @@ import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FunSpec
 
-private fun tokenChain(s: String) = TEST_TOKENIZER.tokenize(s)
+private fun tokenChain(s: String) = MATH_TOKENIZER.tokenize(CharOffsetTracker, s)
         .map { it.value }
         .filter { !(it is MathToken.Space) }.asChain()
 
