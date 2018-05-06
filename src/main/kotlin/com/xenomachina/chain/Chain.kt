@@ -96,10 +96,13 @@ class ChainIterator<out T> internal constructor (chain: Chain<T>) : Iterator<T> 
 }
 
 /**
- * Returns a new chain of the specified elements.
+ * Returns a chain of the specified elements.
  */
 fun <T> chainOf(head: T, vararg tail: T): Chain.NonEmpty<T> = chainOf(head, tail, offset = 0)
 
+/**
+ * Returns a chain of no elements.
+ */
 fun chainOf(): Chain.Empty = Chain.Empty
 
 private fun <T> chainOf(head: T, tail: Array<out T>, offset: Int): Chain.NonEmpty<T> {
