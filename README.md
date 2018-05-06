@@ -1,7 +1,7 @@
 # Kessel — Parser Combinators for Kotlin
 
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
-[![Maven Central](https://img.shields.io/maven-central/v/com.xenomachina/kessel.svg)](https://mvnrepository.com/artifact/com.xenomachina/kessel)
+<!-- [![Maven Central](https://img.shields.io/maven-central/v/com.xenomachina/kessel.svg)](https://mvnrepository.com/artifact/com.xenomachina/kessel) -->
 [![Build Status](https://travis-ci.org/xenomachina/kessel.svg?branch=master)](https://travis-ci.org/xenomachina/kessel)
 <!-- TODO: [![codebeat badge](https://codebeat.co/badges/902174e2-31be-4f9d-a4ba-40178b075d2a)](https://codebeat.co/projects/github-com-xenomachina-kessel-master)-->
 <!-- TODO: [![Javadocs](https://www.javadoc.io/badge/com.xenomachina/kessel.svg)](https://www.javadoc.io/doc/com.xenomachina/kessel) -->
@@ -10,7 +10,8 @@
 Kessel is a simple parser combinator library for Kotlin.
 
 **This library is currently a work in progress. Feel free to try it out, and
-comments are welcome, but I may make incompatible changes without notice.**
+comments/suggestions/contributions are welcome, but incompatible changes may be
+made without notice.**
 
 Like many other parsers, Kessel has two main stages:
 
@@ -23,10 +24,6 @@ These two stages are very loosely coupled. The types for tokens and abstract
 syntax trees are both user-defined, and one can easily use tokenization without
 parsing, parsing without tokenizing, or perform additional processing on the
 token stream between tokenization and parsing.
-
-Kessel also includes some helpers for identifying the original position of
-tokenized/parsed objects in the source, to assist with error reporting and
-other diagnostics.
 
 ## Tokenization
 
@@ -74,11 +71,10 @@ When multiple regexes match the input, the longest match wins.
 To tokenize a `CharSequence`:
 
 ``` kotlin
-MATH_TOKENIZER.tokenize(postionTracker, "foo bar 123 baz789 45.6 45 .6 hello")
+MATH_TOKENIZER.tokenize("foo bar 123 baz789 45.6 45 .6 hello")
 ```
 
-This will return a `Sequence<Positioned<P, MathToken>>` (where `P` is the
-position type of the supplied `postionTracker`).
+This will return a `Sequence<MathToken>`.
 
 ## Parsing
 
@@ -181,3 +177,22 @@ parser's start rule.
 ``` kotlin
 typealias ParseResult<T, R> = Either<List<ParseError<T>>, R>
 ```
+
+## Position Tracking
+
+Kessel includes some helpers for identifying the original position of
+tokenized/parsed objects in the source, to assist with error reporting and
+other diagnostics.
+
+When tokenizing, a `PositionTracker` can be supplied:
+
+``` kotlin
+MATH_TOKENIZER.tokenize(postionTracker, "foo bar 123 baz789 45.6 45 .6 hello")
+```
+
+This will return a `Sequence<Positioned<P, MathToken>>`, where `P` is the
+position type of the supplied `PostionTracker`.
+
+Parsers must be written specifically to be able to handle `Positioned`
+tokens. (I'd like to find a way to make this more transparent, but I'm not sure
+if that's even possible yet.)
