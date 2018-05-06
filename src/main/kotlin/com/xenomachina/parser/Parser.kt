@@ -59,14 +59,11 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
         return Either.Left(errors)
     }
 
-    class Builder<in T, out R> (private val body: Builder.Companion.() -> Rule<T, R>) {
-        fun build(): Parser<T, R> = Parser(body(Companion))
+    class Builder<in T, out R> (private val block: Builder.Companion.() -> Rule<T, R>) {
+        fun build(): Parser<T, R> = Parser(block(Companion))
 
         companion object {
-            inline fun <reified T : Any> isA(): Rule<Any, T> {
-                val javaClass = T::class.java
-                return terminal<Any> { javaClass.isInstance(it) }.map { javaClass.cast(it) }
-            }
+            inline fun <reified T : Any> isA(): Rule<Any, T> = terminal<Any> { it is T }.map { it as T }
 
             fun <T> terminal(predicate: (T) -> Boolean) = Terminal(predicate)
 

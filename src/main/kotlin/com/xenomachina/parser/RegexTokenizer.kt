@@ -43,7 +43,6 @@ interface Tokenizer<T> {
         tokenize(NoOpPositionTracker, chars).map { it.value }
 }
 
-
 /**
  * A `RegexTokenizer` acts as a mapping from [Regex] objects to [TokenConstructor] objects.
  *
@@ -52,7 +51,7 @@ interface Tokenizer<T> {
  */
 class RegexTokenizer<T>(
     vararg regexToToken: Pair<Regex, TokenConstructor<T>>
-): Tokenizer<T> {
+) : Tokenizer<T> {
     /**
      * Converts the specified [CharSequence] into a [Sequence] of tokens of
      * type `T`. Starting at the beginning of the `CharSequence`, each `Regex`
