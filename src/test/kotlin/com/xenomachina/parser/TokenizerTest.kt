@@ -27,24 +27,28 @@ internal fun <T> Sequence<T>.shouldContain(vararg expected: T) {
 }
 
 sealed class MathToken {
-    data class Identifier(val name: String) : MathToken()
-    data class IntLiteral(val value: Int) : MathToken()
-    data class FloatLiteral(val value: Double) : MathToken()
+    sealed class Value : MathToken() {
+        data class Identifier(val name: String) : MathToken.Value()
+        data class IntLiteral(val value: Int) : MathToken.Value()
+        data class FloatLiteral(val value: Double) : MathToken.Value()
+    }
     data class Space(val spaces: String) : MathToken()
-    data class MultOp(val name: String) : MathToken()
-    data class AddOp(val name: String) : MathToken()
+    sealed class Operator : MathToken() {
+        data class MultOp(val name: String) : MathToken.Operator()
+        data class AddOp(val name: String) : MathToken.Operator()
+    }
 
     object OpenParen : MathToken()
     object CloseParen : MathToken()
 }
 
 val MATH_TOKENIZER = RegexTokenizer<MathToken>(
-    Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> MathToken.Identifier(m.group()) },
-    Regex("\\d+") to { m -> MathToken.IntLiteral(m.group().toInt()) },
-    Regex("\\d*\\.\\d") to { m -> MathToken.FloatLiteral(m.group().toDouble()) },
+    Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { m -> MathToken.Value.Identifier(m.group()) },
+    Regex("\\d+") to { m -> MathToken.Value.IntLiteral(m.group().toInt()) },
+    Regex("\\d*\\.\\d") to { m -> MathToken.Value.FloatLiteral(m.group().toDouble()) },
     Regex("\\s+") to { m -> MathToken.Space(m.group()) },
-    Regex("[*/]") to { m -> MathToken.MultOp(m.group()) },
-    Regex("[-+]") to { m -> MathToken.AddOp(m.group()) },
+    Regex("[*/]") to { m -> MathToken.Operator.MultOp(m.group()) },
+    Regex("[-+]") to { m -> MathToken.Operator.AddOp(m.group()) },
     Regex("\\(") to { _ -> MathToken.OpenParen },
     Regex("\\)") to { _ -> MathToken.CloseParen }
 )
@@ -53,21 +57,21 @@ class TokenizerTest : FunSpec({
     test("simple") {
 
         MATH_TOKENIZER.tokenize(CharOffsetTracker, "foo bar 123 baz789 45.6 45 .6 hello").shouldContain(
-                Positioned(0, MathToken.Identifier("foo"), 3),
+                Positioned(0, MathToken.Value.Identifier("foo"), 3),
                 Positioned(3, MathToken.Space(" "), 4),
-                Positioned(4, MathToken.Identifier("bar"), 7),
+                Positioned(4, MathToken.Value.Identifier("bar"), 7),
                 Positioned(7, MathToken.Space(" "), 8),
-                Positioned(8, MathToken.IntLiteral(123), 11),
+                Positioned(8, MathToken.Value.IntLiteral(123), 11),
                 Positioned(11, MathToken.Space(" "), 12),
-                Positioned(12, MathToken.Identifier("baz789"), 18),
+                Positioned(12, MathToken.Value.Identifier("baz789"), 18),
                 Positioned(18, MathToken.Space(" "), 19),
-                Positioned(19, MathToken.FloatLiteral(45.6), 23),
+                Positioned(19, MathToken.Value.FloatLiteral(45.6), 23),
                 Positioned(23, MathToken.Space(" "), 24),
-                Positioned(24, MathToken.IntLiteral(45), 26),
+                Positioned(24, MathToken.Value.IntLiteral(45), 26),
                 Positioned(26, MathToken.Space(" "), 27),
-                Positioned(27, MathToken.FloatLiteral(.6), 29),
+                Positioned(27, MathToken.Value.FloatLiteral(.6), 29),
                 Positioned(29, MathToken.Space(" "), 30),
-                Positioned(30, MathToken.Identifier("hello"), 35)
+                Positioned(30, MathToken.Value.Identifier("hello"), 35)
         )
     }
 })

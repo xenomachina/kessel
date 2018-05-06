@@ -30,8 +30,8 @@ private fun tokenChain(s: String) = MATH_TOKENIZER.tokenize(CharOffsetTracker, s
         .filter { !(it is MathToken.Space) }.asChain()
 
 sealed class Expr {
-    data class Op(val left: Expr, val op: MathToken, val right: Expr) : Expr()
-    data class Leaf(val value: MathToken) : Expr()
+    data class Op(val left: Expr, val op: MathToken.Operator, val right: Expr) : Expr()
+    data class Leaf(val value: MathToken.Value) : Expr()
 }
 
 fun <L, R> Either<L, R>.assertRight(): R = (this as Either.Right<R>).right
@@ -41,7 +41,7 @@ fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 class ParserTest : FunSpec({
     test("simple") {
         val parser = Parser.Builder {
-            seq(isA<MathToken.IntLiteral>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
+            seq(isA<MathToken.Value.IntLiteral>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
         parser.parse(tokenChain("5")) shouldEqual Either.Right(5)
@@ -59,13 +59,13 @@ class ParserTest : FunSpec({
 
         val parser = Parser.Builder {
             val grammar = object {
-                val multOp = isA<MathToken.MultOp>()
+                val multOp = isA<MathToken.Operator.MultOp>()
 
-                val addOp = isA<MathToken.AddOp>()
+                val addOp = isA<MathToken.Operator.AddOp>()
 
                 val factor = oneOf(
-                            isA<MathToken.IntLiteral>().map(Expr::Leaf),
-                            isA<MathToken.Identifier>().map(Expr::Leaf),
+                            isA<MathToken.Value.IntLiteral>().map(Expr::Leaf),
+                            isA<MathToken.Value.Identifier>().map(Expr::Leaf),
                             seq(
                                     isA<MathToken.OpenParen>(),
                                     recur { expression },
@@ -101,30 +101,30 @@ class ParserTest : FunSpec({
 
         val ast = parser.parse(tokenChain("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
         ast as Expr.Op
-        ast.op as MathToken.AddOp
+        ast.op as MathToken.Operator.AddOp
         ast.op.name shouldEqual "-"
 
         // 5 * (3 + 7)
         ast.left as Expr.Op
-        ast.left.op as MathToken.MultOp
+        ast.left.op as MathToken.Operator.MultOp
         ast.left.op.name shouldEqual "*"
 
         // 5
         ast.left.left as Expr.Leaf
-        ast.left.left.value as MathToken.IntLiteral
+        ast.left.left.value as MathToken.Value.IntLiteral
         ast.left.left.value.value shouldEqual 5
 
         // (3 + 7)
         ast.left.right as Expr.Op
-        ast.left.right.op as MathToken.AddOp
+        ast.left.right.op as MathToken.Operator.AddOp
         ast.left.right.op.name shouldEqual "+"
     }
 
     test("simple left recursion") {
         val parser = Parser.Builder {
             val grammar = object {
-                val addOp = isA<MathToken.AddOp>()
-                val number = isA<MathToken.IntLiteral>().map(Expr::Leaf)
+                val addOp = isA<MathToken.Operator.AddOp>()
+                val number = isA<MathToken.Value.IntLiteral>().map(Expr::Leaf)
 
                 val expression: Rule<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
                         number,
@@ -145,13 +145,13 @@ class ParserTest : FunSpec({
     // TODO: support left recursion, and re-enable this test
 //    test("left_recursion") {
 //        val grammar = object {
-//            val multOp = isA<MathToken.MultOp>()
+//            val multOp = isA<MathToken.Operator.MultOp>()
 //
-//            val addOp = isA<MathToken.AddOp>()
+//            val addOp = isA<MathToken.Operator.AddOp>()
 //
 //            val factor : Parser<MathToken, Expr> by lazy { oneOf<MathToken, Expr>(
-//                    isA<MathToken.IntLiteral>().map(Expr::Leaf),
-//                    isA<MathToken.Identifier>().map(Expr::Leaf),
+//                    isA<MathToken.Value.IntLiteral>().map(Expr::Leaf),
+//                    isA<MathToken.Value.Identifier>().map(Expr::Leaf),
 //                    seq(
 //                            isA<MathToken.OpenParen>(),
 //                            L { expression },
