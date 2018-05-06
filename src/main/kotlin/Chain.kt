@@ -18,7 +18,6 @@
 
 package com.xenomachina.chain
 
-import com.xenomachina.common.Functor
 import kotlin.coroutines.experimental.SequenceBuilder
 import kotlin.coroutines.experimental.buildIterator
 
@@ -26,7 +25,7 @@ import kotlin.coroutines.experimental.buildIterator
  * A `Chain` represents a sequence of values. Like `Sequence`, a `Chain` is lazy, but unlike `Sequence`, earlier
  * points along the chain can be remembered, which is useful for backtracking. A `Chain` is immutable, modulo laziness.
  */
-sealed class Chain<out T> : Functor<T> {
+sealed class Chain<out T> {
     /**
      * @property head The first element of the chain.
      */
@@ -46,7 +45,7 @@ sealed class Chain<out T> : Functor<T> {
         val component2
             get() = tail
 
-        override fun <F> map(f: (T) -> F): Chain.NonEmpty<F> = NonEmpty<F>(f(head)) { tail.map(f) }
+        override fun <F> map(f: (T) -> F): Chain.NonEmpty<F> = NonEmpty(f(head)) { tail.map(f) }
     }
 
     object Empty : Chain<Nothing>() {
@@ -54,10 +53,10 @@ sealed class Chain<out T> : Functor<T> {
 
         override fun iterator(): Iterator<Nothing> = emptySequence<Nothing>().iterator()
 
-        override fun <F> map(f: (Nothing) -> F): Empty = this
+        override inline fun <F> map(f: (Nothing) -> F): Empty = this
     }
 
-    abstract override fun <F> map(f: (T) -> F): Chain<F>
+    abstract fun <F> map(f: (T) -> F): Chain<F>
 
     abstract fun isEmpty(): Boolean
 

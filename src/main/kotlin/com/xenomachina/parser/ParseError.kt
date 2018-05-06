@@ -18,12 +18,12 @@
 
 package com.xenomachina.parser
 
-import com.xenomachina.common.Maybe
+import arrow.core.Option
 
 /**
  * @property message error message
  */
-class ParseError<out T>(val consumed: Int, val element: Maybe<T>, message: () -> String) {
+class ParseError<out T>(val consumed: Int, val element: Option<T>, message: () -> String) {
     val message by lazy { message() }
 
     override fun toString(): String {

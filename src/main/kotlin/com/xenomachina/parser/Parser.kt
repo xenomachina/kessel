@@ -18,9 +18,9 @@
 
 package com.xenomachina.parser
 
+import arrow.core.Either
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.asChain
-import com.xenomachina.common.Either
 import java.util.IdentityHashMap
 
 typealias ParseResult<T, R> = Either<List<ParseError<T>>, R>
@@ -55,10 +55,10 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                         errors.clear()
                     }
                     if (partial.consumed == bestConsumed) {
-                        errors.add(partial.value.left)
+                        errors.add(partial.value.a)
                     }
                 }
-                is Either.Right -> return Either.Right(partial.value.right)
+                is Either.Right -> return Either.Right(partial.value.b)
             }
         }
         return Either.Left(errors)

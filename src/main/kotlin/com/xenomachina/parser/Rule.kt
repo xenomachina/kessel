@@ -18,13 +18,12 @@
 
 package com.xenomachina.parser
 
+import arrow.core.Either
+import arrow.core.Option
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.buildChain
 import com.xenomachina.chain.chainOf
 import com.xenomachina.chain.plus
-import com.xenomachina.common.Either
-import com.xenomachina.common.Functor
-import com.xenomachina.common.Maybe
 import java.util.IdentityHashMap
 import kotlin.coroutines.experimental.SequenceBuilder
 
@@ -36,6 +35,7 @@ abstract class Rule<in T, out R> {
         chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, R>>
 
+    // TODO: rename this to invoke???
     internal fun <Q : T> call(
         consumed: Int,
         breadcrumbs: Map<Rule<*, *>, Int>,
@@ -415,11 +415,13 @@ private suspend fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>.forSeq
 ) {
     for (partial in rule.call(consumed, breadcrumbs, chain)) {
         when (partial.value) {
-            is Either.Left ->
-                // TODO: use unchecked cast? (object should be identical)
-                yield(PartialResult(partial.consumed, partial.value, partial.remaining))
+            is Either.Left -> {
+                // TODO: This object should be identical to partial.value, but we have to rebuild it to get the types
+                // right. An unchecked cast would probably work here.
+                yield(PartialResult<Q, Z>(partial.consumed, Either.left(partial.value.a), partial.remaining))
+            }
             is Either.Right -> {
-                body(partial, partial.value.right)
+                body(partial, partial.value.b)
             }
         }
     }
@@ -435,12 +437,12 @@ internal data class PartialResult<out T, out R>(
     val consumed: Int,
     val value: Either<ParseError<T>, R>,
     val remaining: Chain<T>
-) : Functor<R> {
-    override fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
+) {
+    fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
 }
 
 val <T> Chain<T>.maybeHead
     get() = when (this) {
-        is Chain.NonEmpty -> Maybe.Just(head)
-        is Chain.Empty -> Maybe.NOTHING
+        is Chain.NonEmpty -> Option.just(head)
+        is Chain.Empty -> Option.empty()
     }

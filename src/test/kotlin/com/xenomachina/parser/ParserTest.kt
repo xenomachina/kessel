@@ -18,8 +18,8 @@
 
 package com.xenomachina.parser
 
+import arrow.core.Either
 import com.xenomachina.chain.Chain
-import com.xenomachina.common.Either
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FunSpec
@@ -34,8 +34,8 @@ sealed class Expr {
     data class Leaf(val value: MathToken.Value) : Expr()
 }
 
-fun <L, R> Either<L, R>.assertRight(): R = (this as Either.Right<R>).right
-fun <L, R> Either<L, R>.assertLeft(): L = (this as Either.Left<L>).left
+fun <L, R> Either<L, R>.assertRight(): R = (this as Either.Right<L, R>).b
+fun <L, R> Either<L, R>.assertLeft(): L = (this as Either.Left<L, R>).a
 fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
