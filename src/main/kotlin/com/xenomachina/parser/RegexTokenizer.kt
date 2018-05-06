@@ -39,7 +39,7 @@ interface Tokenizer<T> {
     /**
      * Tokenize chars.
      */
-    fun <T> Tokenizer<T>.tokenize(chars: CharSequence): Sequence<T> =
+    fun tokenize(chars: CharSequence): Sequence<T> =
         tokenize(NoOpPositionTracker, chars).map { it.value }
 }
 

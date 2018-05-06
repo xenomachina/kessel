@@ -19,8 +19,11 @@
 package com.xenomachina.parser
 
 import com.xenomachina.chain.Chain
+import com.xenomachina.chain.asChain
 import com.xenomachina.common.Either
 import java.util.IdentityHashMap
+
+typealias ParseResult<T, R> = Either<List<ParseError<T>>, R>
 
 class Parser<in T, out R>(private val start: Rule<T, R>) {
     val ruleProps = computeRuleProperties()
@@ -38,7 +41,9 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
     private val Rule<*, *>.properties
         get() = ruleProps.get(this)!!
 
-    fun <Q : T> parse(chain: Chain<Q>): Either<List<ParseError<Q>>, R> {
+    fun <Q : T> parse(sequence: Sequence<Q>): ParseResult<Q, R> = parse(sequence.asChain())
+
+    fun <Q : T> parse(chain: Chain<Q>): ParseResult<Q, R> {
         val breadcrumbs = IdentityHashMap<Rule<*, *>, Int>()
         val errors = mutableListOf<ParseError<Q>>()
         var bestConsumed = 0

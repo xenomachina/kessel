@@ -19,15 +19,15 @@
 package com.xenomachina.parser
 
 import com.xenomachina.chain.Chain
-import com.xenomachina.chain.asChain
 import com.xenomachina.common.Either
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.matchers.shouldThrow
 import io.kotlintest.specs.FunSpec
 
-private fun tokenChain(s: String) = MATH_TOKENIZER.tokenize(CharOffsetTracker, s)
+private fun tokens(s: String) =
+    MATH_TOKENIZER.tokenize(CharOffsetTracker, s)
         .map { it.value }
-        .filter { !(it is MathToken.Space) }.asChain()
+        .filter { !(it is MathToken.Space) }
 
 sealed class Expr {
     data class Op(val left: Expr, val op: MathToken.Operator, val right: Expr) : Expr()
@@ -44,9 +44,9 @@ class ParserTest : FunSpec({
             seq(isA<MathToken.Value.IntLiteral>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
-        parser.parse(tokenChain("5")) shouldEqual Either.Right(5)
+        parser.parse(tokens("5")) shouldEqual Either.Right(5)
 
-        parser.parse(tokenChain("hello")).assertLeft().first().message
+        parser.parse(tokens("hello")).assertLeft().first().message
                 .shouldEqual("Unexpected: Identifier(name=hello)")
     }
 
@@ -99,25 +99,29 @@ class ParserTest : FunSpec({
         parser.ruleProps[multRule]!!.nullable shouldEqual false
         parser.ruleProps[exprRule]!!.nullable shouldEqual false
 
-        val ast = parser.parse(tokenChain("5 * (3 + 7) - (4 / (2 - 1))")).assertRight()
-        ast as Expr.Op
-        ast.op as MathToken.Operator.AddOp
-        ast.op.name shouldEqual "-"
+        // TODO: make parser work with sequence of positioned thingies
+        val parse = parser.parse(MATH_TOKENIZER.tokenize("5 * (3 + 7) - (4 / (2 - 1))")
+            .filterNot { it is MathToken.Space })
+        val expr = parse.assertRight()
+
+        expr as Expr.Op
+        expr.op as MathToken.Operator.AddOp
+        expr.op.name shouldEqual "-"
 
         // 5 * (3 + 7)
-        ast.left as Expr.Op
-        ast.left.op as MathToken.Operator.MultOp
-        ast.left.op.name shouldEqual "*"
+        expr.left as Expr.Op
+        expr.left.op as MathToken.Operator.MultOp
+        expr.left.op.name shouldEqual "*"
 
         // 5
-        ast.left.left as Expr.Leaf
-        ast.left.left.value as MathToken.Value.IntLiteral
-        ast.left.left.value.value shouldEqual 5
+        expr.left.left as Expr.Leaf
+        expr.left.left.value as MathToken.Value.IntLiteral
+        expr.left.left.value.value shouldEqual 5
 
         // (3 + 7)
-        ast.left.right as Expr.Op
-        ast.left.right.op as MathToken.Operator.AddOp
-        ast.left.right.op.name shouldEqual "+"
+        expr.left.right as Expr.Op
+        expr.left.right.op as MathToken.Operator.AddOp
+        expr.left.right.op.name shouldEqual "+"
     }
 
     test("simple left recursion") {
@@ -135,7 +139,7 @@ class ParserTest : FunSpec({
         }.build()
 
         shouldThrow<IllegalStateException> {
-            parser.parse(tokenChain("1 + 2 + 3 + 4"))
+            parser.parse(tokens("1 + 2 + 3 + 4"))
         }.run {
             // Left-recursion is not currently supported.
             message shouldEqual "Left recursion detected"

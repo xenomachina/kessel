@@ -32,7 +32,7 @@ sealed class MathToken {
         data class IntLiteral(val value: Int) : MathToken.Value()
         data class FloatLiteral(val value: Double) : MathToken.Value()
     }
-    data class Space(val spaces: String) : MathToken()
+
     sealed class Operator : MathToken() {
         data class MultOp(val name: String) : MathToken.Operator()
         data class AddOp(val name: String) : MathToken.Operator()
@@ -40,6 +40,8 @@ sealed class MathToken {
 
     object OpenParen : MathToken()
     object CloseParen : MathToken()
+
+    data class Space(val spaces: String) : MathToken()
 }
 
 val MATH_TOKENIZER = RegexTokenizer<MathToken>(
