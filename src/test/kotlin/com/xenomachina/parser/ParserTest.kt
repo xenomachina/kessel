@@ -86,12 +86,14 @@ class ParserTest : FunSpec({
                             seq(term, addOp, recur { expression }) { l, op, r -> Expr.Op(l, op, r) }
                     )
                 }
+
+                val start = seq(expression, END_OF_INPUT) { expr, _ -> expr }
             }
 
             multRule = grammar.multOp
             exprRule = grammar.expression
 
-            seq(grammar.expression, END_OF_INPUT) { expr, _ -> expr }
+            grammar.start
         }.build()
 
         parser.ruleProps[multRule]!!.nullable shouldEqual false
