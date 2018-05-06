@@ -63,20 +63,46 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
         fun build(): Parser<T, R> = Parser(block(Companion))
 
         companion object {
-            inline fun <reified T : Any> isA(): Rule<Any, T> = terminal<Any> { it is T }.map { it as T }
-
+            /**
+             * Matches a single input element if and only if [predicate] returns `true` given that element.
+             */
             fun <T> terminal(predicate: (T) -> Boolean) = Terminal(predicate)
 
+            /**
+             * Matches a single input element if and only if it is of type `T`.
+             */
+            inline fun <reified T : Any> isA(): Rule<Any, T> = terminal<Any> { it is T }.map { it as T }
+
+            /**
+             * Matches any one of the supplied rules.
+             */
             fun <T, R> oneOf(rule1: Rule<T, R>, vararg rules: Rule<T, R>) = AlternativeRule(rule1, *rules)
 
+            /**
+             * Lazily refers to another rule. This is necessary for recursive grammars.
+             */
             fun <T, R> recur(inner: () -> Rule<T, R>): Rule<T, R> = LazyRule(inner)
 
+            /**
+             * Matches a sequence of one sub-rule. Included for completeness, map is equivalent.
+             */
+            fun <T, A, Z> seq(
+                ruleA: Rule<T, A>,
+                constructor: (A) -> Z
+            ): Rule<T, Z> = ruleA.map(constructor)
+
+            /**
+             * Matches a sequence of two sub-rules.
+             */
             fun <T, A, B, Z> seq(
                 ruleA: Rule<T, A>,
                 ruleB: Rule<T, B>,
                 constructor: (A, B) -> Z
             ): Rule<T, Z> = Sequence2Rule(ruleA, ruleB, constructor)
 
+            /**
+             * Matches a sequence of three sub-rules.
+             */
             fun <T, A, B, C, Z> seq(
                 ruleA: Rule<T, A>,
                 ruleB: Rule<T, B>,
@@ -84,6 +110,9 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 constructor: (A, B, C) -> Z
             ): Rule<T, Z> = Sequence3Rule(ruleA, ruleB, ruleC, constructor)
 
+            /**
+             * Matches a sequence of four sub-rules.
+             */
             fun <T, A, B, C, D, Z> seq(
                 ruleA: Rule<T, A>,
                 ruleB: Rule<T, B>,
@@ -92,6 +121,9 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 constructor: (A, B, C, D) -> Z
             ): Rule<T, Z> = Sequence4Rule(ruleA, ruleB, ruleC, ruleD, constructor)
 
+            /**
+             * Matches a sequence of five sub-rules.
+             */
             fun <T, A, B, C, D, E, Z> seq(
                 ruleA: Rule<T, A>,
                 ruleB: Rule<T, B>,
@@ -101,6 +133,9 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 constructor: (A, B, C, D, E) -> Z
             ): Rule<T, Z> = Sequence5Rule(ruleA, ruleB, ruleC, ruleD, ruleE, constructor)
 
+            /**
+             * Matches a sequence of six sub-rules.
+             */
             fun <T, A, B, C, D, E, F, Z> seq(
                 ruleA: Rule<T, A>,
                 ruleB: Rule<T, B>,
@@ -111,6 +146,9 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 constructor: (A, B, C, D, E, F) -> Z
             ): Rule<T, Z> = Sequence6Rule(ruleA, ruleB, ruleC, ruleD, ruleE, ruleF, constructor)
 
+            /**
+             * Matches a sequence of seven sub-rules.
+             */
             fun <T, A, B, C, D, E, F, G, Z> seq(
                 ruleA: Rule<T, A>,
                 ruleB: Rule<T, B>,
@@ -122,6 +160,9 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 constructor: (A, B, C, D, E, F, G) -> Z
             ): Rule<T, Z> = Sequence7Rule(ruleA, ruleB, ruleC, ruleD, ruleE, ruleF, ruleG, constructor)
 
+            /**
+             * Matches the end of input.
+             */
             val END_OF_INPUT = com.xenomachina.parser.END_OF_INPUT
         }
     }
