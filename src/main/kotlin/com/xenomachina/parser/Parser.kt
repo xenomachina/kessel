@@ -18,6 +18,7 @@
 
 package com.xenomachina.parser
 
+import arrow.core.Either
 import arrow.core.None
 import arrow.core.Option
 import arrow.data.NonEmptyList
@@ -98,6 +99,12 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
              * Matches any one of the supplied rules.
              */
             fun <T, R> oneOf(rule1: Rule<T, R>, vararg rules: Rule<T, R>) = AlternativeRule(rule1, *rules)
+
+            /**
+             * Matches either of the supplied rules.
+             */
+            fun <T, Q, R> either(left: Rule<T, Q>, right: Rule<T, R>): Rule<T, Either<Q, R>> =
+                AlternativeRule(left.map { Either.left(it) }, right.map { Either.right(it) })
 
             /**
              * Lazily refers to another rule. This is necessary for recursive grammars.

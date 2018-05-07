@@ -138,14 +138,20 @@ would be possible to just use `val` statements directly in the `Builder` block.
 
 The final line of the block evaluates to the start rule of our grammar.
 
-In the `Builder` are several helpers for constructing rules:
+In the `Builder` are several helpers for constructing your grammar:
+
+- `epsilon` - matches zero input elements. Always succeeds, and returns `Unit`.
 
 - `terminal(predicate)` - matches a single input element using the supplied predicate.
 
 - `isA<T>()` - a `terminal` that matches if the element is of type `T`.
 
 - `oneOf(rules...)` - a rule that matches one of the supplied rules. Like a
-  logical "or".
+  logical "or". The rules must all return a common type.
+
+- `either(left, right)` - a rule that matches one of the supplied rules, just
+  like `oneOf`, except the rules do not need to return a common type. Instead,
+  they are wrapped in an `Either`.
 
 - `seq(rules...){ a, b, c, ... -> result }` - a rule that matches a number of
   other rules in sequence. Unlike many other parser combinator implementations

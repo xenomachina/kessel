@@ -18,6 +18,7 @@
 
 package com.xenomachina.parser
 
+import arrow.core.Either
 import arrow.core.None
 import arrow.core.Option
 import arrow.data.Validated
@@ -68,6 +69,20 @@ class ParserTest : FunSpec({
 
         parser.parse(tokens("")) shouldEqual Validated.Valid(None)
         parser.parse(tokens("512")) shouldEqual Validated.Valid(Option.just(512))
+    }
+
+    test("either") {
+        val parser = Parser.Builder {
+            seq(
+                either(
+                    isA<MathToken.Value.IntLiteral>().map { it.value },
+                    isA<MathToken.Value.Identifier>().map { it.name }
+                ),
+                END_OF_INPUT) { x, _ -> x }
+        }.build()
+
+        parser.parse(tokens("978136")) shouldEqual Validated.Valid(Either.left(978136))
+        parser.parse(tokens("hello")) shouldEqual Validated.Valid(Either.right("hello"))
     }
 
     test("repeat") {
