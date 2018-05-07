@@ -111,8 +111,8 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
              */
             fun <T, R> repeat(rule: Rule<T, R>): Rule<T, List<R>> {
                 return object {
-                    val me : Rule<T, Chain<R>> = recur { myself }
-                    val myself : Rule<T, Chain<R>> =
+                    val me: Rule<T, Chain<R>> = recur { myself }
+                    val myself: Rule<T, Chain<R>> =
                         oneOf<T, Chain<R>>(
                             epsilon.map { Chain.Empty },
                             seq(rule, me) { x, chain -> Chain.NonEmpty(x) { chain } }
