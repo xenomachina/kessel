@@ -25,7 +25,7 @@ import kotlin.coroutines.experimental.buildIterator
  * A `Chain` represents a sequence of values. Like `Sequence`, a `Chain` is lazy, but unlike `Sequence`, earlier
  * points along the chain can be remembered, which is useful for backtracking. A `Chain` is immutable, modulo laziness.
  */
-sealed class Chain<out T> {
+sealed class Chain<out T> : Iterable<T> {
     /**
      * @property head The first element of the chain.
      */
@@ -39,11 +39,9 @@ sealed class Chain<out T> {
          */
         val tail by lazy(tailProvider)
 
-        val component1
-            get() = head
+        operator fun component1(): T = head
 
-        val component2
-            get() = tail
+        operator fun component2(): Chain<T> = tail
 
         override fun <F> map(f: (T) -> F): Chain.NonEmpty<F> = NonEmpty(f(head)) { tail.map(f) }
     }
@@ -60,7 +58,7 @@ sealed class Chain<out T> {
 
     abstract fun isEmpty(): Boolean
 
-    abstract operator fun iterator(): Iterator<T>
+    abstract override operator fun iterator(): Iterator<T>
 }
 
 operator fun <T> Chain<T>.plus(that: () -> Chain<T>): Chain<T> =
