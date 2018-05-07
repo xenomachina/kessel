@@ -107,6 +107,20 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 AlternativeRule(left.map { Either.left(it) }, right.map { Either.right(it) })
 
             /**
+             * Matches 0 or more of the supplied rule.
+             */
+            fun <T, R> repeat(rule: Rule<T, R>): Rule<T, List<R>> {
+                return object {
+                    val me : Rule<T, Chain<R>> = recur { myself }
+                    val myself : Rule<T, Chain<R>> =
+                        oneOf<T, Chain<R>>(
+                            epsilon.map { Chain.Empty },
+                            seq(rule, me) { x, chain -> Chain.NonEmpty(x) { chain } }
+                        )
+                }.myself.map { it.toList() }
+            }
+
+            /**
              * Lazily refers to another rule. This is necessary for recursive grammars.
              */
             fun <T, R> recur(inner: () -> Rule<T, R>): Rule<T, R> = LazyRule(inner)

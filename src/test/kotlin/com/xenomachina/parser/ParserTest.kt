@@ -86,7 +86,24 @@ class ParserTest : FunSpec({
     }
 
     test("repeat") {
-        // TODO
+        val parser = Parser.Builder {
+            seq(
+                Parser.Builder.repeat(isA<MathToken.Value.IntLiteral>().map { it.value }),
+                END_OF_INPUT) { x, _ -> x }
+        }.build()
+
+        parser.parse(tokens("")) shouldEqual Validated.Valid(emptyList<Int>())
+
+        parser.parse(tokens("42")) shouldEqual Validated.Valid(listOf(42))
+
+        parser.parse(tokens("4 8 15 16 23 42")) shouldEqual Validated.Valid(
+            listOf(4, 8, 15, 16, 23, 42))
+
+        // TODO: re-enable this when repeat doesn't abuse the stack
+//        val million = parser.parse(
+//            (1..1000000).map { MathToken.Value.IntLiteral(it) }.asSequence()
+//        )
+//        million.assertRight().size shouldEqual 1000000
     }
 
     test("repeat with separator") {
