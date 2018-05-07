@@ -429,6 +429,7 @@ private suspend inline fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>
     }
 }
 
+// TODO: flip this inside-out so that Validated is on the outside? Then R can be Nothing in case of error.
 /**
  * @property consumed how many input tokens were successfully consumed to construct the successful result or before
  * failing
