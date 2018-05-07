@@ -37,8 +37,8 @@ sealed class Expr {
     data class Leaf(val value: MathToken.Value) : Expr()
 }
 
-fun <L, R> Validated<L, R>.assertRight(): R = (this as Validated.Valid<R>).a
-fun <L, R> Validated<L, R>.assertLeft(): L = (this as Validated.Invalid<L>).e
+fun <E, A> Validated<E, A>.assertValid(): A = (this as Validated.Valid<A>).a
+fun <E, A> Validated<E, A>.assertInvalid(): E = (this as Validated.Invalid<E>).e
 
 fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 
@@ -50,7 +50,7 @@ class ParserTest : FunSpec({
 
         parser.parse(tokens("5")) shouldEqual Validated.Valid(5)
 
-        parser.parse(tokens("hello")).assertLeft().head.message
+        parser.parse(tokens("hello")).assertInvalid().head.message
                 .shouldEqual("Unexpected: Identifier(name=hello)")
     }
 
@@ -98,6 +98,21 @@ class ParserTest : FunSpec({
 
         parser.parse(tokens("4 8 15 16 23 42")) shouldEqual Validated.Valid(
             listOf(4, 8, 15, 16, 23, 42))
+
+        val parser2 = Parser.Builder {
+            seq(
+                Parser.Builder.repeat(isA<MathToken.Value.IntLiteral>().map { it.value }),
+                isA<MathToken.Value.IntLiteral>().map { it.value },
+                END_OF_INPUT) { x, y, _ -> Pair(x, y) }
+        }.build()
+
+        parser2.parse(tokens("")).assertInvalid()
+
+        parser2.parse(tokens("42")) shouldEqual Validated.Valid(
+            Pair(emptyList<Int>(), 42))
+
+        parser2.parse(tokens("4 8 15 16 23 42 108")) shouldEqual Validated.Valid(
+            Pair(listOf(4, 8, 15, 16, 23, 42), 108))
 
         // TODO: re-enable this when repeat doesn't abuse the stack
 //        val million = parser.parse(
@@ -164,7 +179,7 @@ class ParserTest : FunSpec({
         // TODO: make parser work with sequence of positioned thingies
         val parse = parser.parse(MATH_TOKENIZER.tokenize("5 * (3 + 7) - (4 / (2 - 1))")
             .filterNot { it is MathToken.Space })
-        val expr = parse.assertRight()
+        val expr = parse.assertValid()
 
         expr as Expr.Op
         expr.op as MathToken.Operator.AddOp
