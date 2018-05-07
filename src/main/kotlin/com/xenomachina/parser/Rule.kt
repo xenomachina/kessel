@@ -408,13 +408,12 @@ class Sequence7Rule<T, A, B, C, D, E, F, G, Z>(
             } as Chain.NonEmpty<PartialResult<Q, Z>>
 }
 
-// TODO: make this inline when inline lambda parameters of suspend function type are supported by Kotlin.
-private suspend fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>.forSequenceSubRule(
+private suspend inline fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>.forSequenceSubRule(
     rule: Rule<T, R>,
     consumed: Int,
     breadcrumbs: Map<Rule<*, *>, Int>,
     chain: Chain<Q>,
-    body: suspend SequenceBuilder<PartialResult<Q, Z>>.(PartialResult<Q, R>, R) -> Unit
+    crossinline body: suspend SequenceBuilder<PartialResult<Q, Z>>.(PartialResult<Q, R>, R) -> Unit
 ) {
     for (partial in rule.call(consumed, breadcrumbs, chain)) {
         when (partial.value) {
