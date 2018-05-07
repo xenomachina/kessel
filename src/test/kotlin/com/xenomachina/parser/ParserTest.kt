@@ -18,6 +18,8 @@
 
 package com.xenomachina.parser
 
+import arrow.core.None
+import arrow.core.Option
 import arrow.data.Validated
 import com.xenomachina.chain.Chain
 import io.kotlintest.matchers.shouldEqual
@@ -52,11 +54,20 @@ class ParserTest : FunSpec({
     }
 
     test("epsilon") {
-        // TODO
+        val parser = Parser.Builder {
+            seq(epsilon, END_OF_INPUT) { x, _ -> x }
+        }.build()
+
+        parser.parse(tokens("")) shouldEqual Validated.Valid(Unit)
     }
 
     test("optional") {
-        // TODO
+        val parser = Parser.Builder {
+            seq(optional(isA<MathToken.Value.IntLiteral>().map { it.value }), END_OF_INPUT) { x, _ -> x }
+        }.build()
+
+        parser.parse(tokens("")) shouldEqual Validated.Valid(None)
+        parser.parse(tokens("512")) shouldEqual Validated.Valid(Option.just(512))
     }
 
     test("repeat") {

@@ -18,6 +18,8 @@
 
 package com.xenomachina.parser
 
+import arrow.core.None
+import arrow.core.Option
 import arrow.data.NonEmptyList
 import arrow.data.Validated
 import arrow.data.ValidatedNel
@@ -179,10 +181,18 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
                 constructor: (A, B, C, D, E, F, G) -> Z
             ): Rule<T, Z> = Sequence7Rule(ruleA, ruleB, ruleC, ruleD, ruleE, ruleF, ruleG, constructor)
 
+            fun <T, R> optional(inner: Rule<T, R>): Rule<T, Option<R>> =
+                oneOf(epsilon.map { None }, inner.map { Option.just(it) })
+
+            /**
+             * Matches zero tokens.
+             */
+            val epsilon = com.xenomachina.parser.epsilon
+
             /**
              * Matches the end of input.
              */
-            val END_OF_INPUT = com.xenomachina.parser.END_OF_INPUT
+            val END_OF_INPUT = com.xenomachina.parser.endOfInput
         }
     }
 }

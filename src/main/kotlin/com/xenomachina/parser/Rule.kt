@@ -91,13 +91,16 @@ class MappingRule<T, A, B>(val original: Rule<T, A>, val transform: (A) -> B) : 
             original.call(consumed, breadcrumbs, chain).map { it.map(transform) }
 }
 
-class Epsilon<T> : Rule<T, Unit>() {
+/**
+ * A [Rule] tha matches zero tokens.
+ */
+object epsilon : Rule<Any?, Unit>() {
     override fun computeRuleProperties(
         result: MutableMap<Rule<*, *>, Properties>,
         seen: MutableMap<Rule<*, *>, Boolean>
     ) = Properties(nullable = true)
 
-    override fun <Q : T> partialParse(
+    override fun <Q> partialParse(
         consumed: Int,
         breadcrumbs: Map<Rule<*, *>, Int>,
         chain: Chain<Q>
@@ -105,7 +108,7 @@ class Epsilon<T> : Rule<T, Unit>() {
             chainOf(PartialResult( consumed, Validated.Valid(Unit), chain))
 }
 
-val END_OF_INPUT = object : Rule<Any?, Unit>() {
+object endOfInput : Rule<Any?, Unit>() {
     override fun computeRuleProperties(
         result: MutableMap<Rule<*, *>, Properties>,
         seen: MutableMap<Rule<*, *>, Boolean>
