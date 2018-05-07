@@ -47,7 +47,7 @@ class ParserTest : FunSpec({
 
         parser.parse(tokens("5")) shouldEqual Validated.Valid(5)
 
-        parser.parse(tokens("hello")).assertLeft().first().message
+        parser.parse(tokens("hello")).assertLeft().head.message
                 .shouldEqual("Unexpected: Identifier(name=hello)")
     }
 

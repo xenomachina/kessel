@@ -18,12 +18,14 @@
 
 package com.xenomachina.parser
 
+import arrow.data.NonEmptyList
 import arrow.data.Validated
+import arrow.data.ValidatedNel
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.asChain
 import java.util.IdentityHashMap
 
-typealias ParseResult<T, R> = Validated<List<ParseError<T>>, R>
+typealias ParseResult<T, R> = ValidatedNel<ParseError<T>, R>
 
 class Parser<in T, out R>(private val start: Rule<T, R>) {
     val ruleProps = computeRuleProperties()
@@ -43,25 +45,37 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
 
     fun <Q : T> parse(sequence: Sequence<Q>): ParseResult<Q, R> = parse(sequence.asChain())
 
-    fun <Q : T> parse(chain: Chain<Q>): ParseResult<Q, R> {
-        val breadcrumbs = IdentityHashMap<Rule<*, *>, Int>()
-        val errors = mutableListOf<ParseError<Q>>()
-        var bestConsumed = 0
-        for (partial in start.call(0, breadcrumbs, chain)) {
-            when (partial.value) {
-                is Validated.Invalid -> {
-                    if (partial.consumed > bestConsumed) {
-                        bestConsumed = partial.consumed
-                        errors.clear()
+    private fun <Q : T> parse(chain: Chain<Q>): ParseResult<Q, R> {
+        val (head, tail) = start.call(0, IdentityHashMap(), chain)
+
+        return when (head.value) {
+            is Validated.Invalid -> {
+                data class Accumulated(
+                    val errors: NonEmptyList<ParseError<Q>>,
+                    var bestConsumed: Int
+                )
+                tail.fold(Accumulated(NonEmptyList.of(head.value.e), head.consumed)) {
+                    accumulated, partial ->
+                    when (partial.value) {
+                        is Validated.Invalid ->
+                            // Collect the errors that get us the furthest into the input.
+                            when {
+                                partial.consumed > accumulated.bestConsumed -> Accumulated(
+                                    errors = NonEmptyList.of(partial.value.e),
+                                    bestConsumed = partial.consumed)
+                                partial.consumed == accumulated.bestConsumed -> Accumulated(
+                                    errors = accumulated.errors.plus(partial.value.e),
+                                    bestConsumed = accumulated.bestConsumed)
+                                else -> accumulated
+                            }
+
+                        is Validated.Valid ->
+                            return@parse Validated.Valid(partial.value.a)
                     }
-                    if (partial.consumed == bestConsumed) {
-                        errors.add(partial.value.e)
-                    }
-                }
-                is Validated.Valid -> return Validated.Valid(partial.value.a)
+                }.let { Validated.Invalid(it.errors) }
             }
+            is Validated.Valid -> Validated.Valid(head.value.a)
         }
-        return Validated.Invalid(errors)
     }
 
     class Builder<in T, out R> (private val block: Builder.Companion.() -> Rule<T, R>) {
