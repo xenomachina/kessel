@@ -60,9 +60,8 @@ repositories {
 }
 
 dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    compile "com.xenomachina:xenocom:$xenocom_version"
     compile "io.arrow-kt:arrow-core:$arrow_version"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
     testCompile "io.kotlintest:kotlintest:$kotlintest_version"
     // This is to ensure that kotlintest uses the correct version of

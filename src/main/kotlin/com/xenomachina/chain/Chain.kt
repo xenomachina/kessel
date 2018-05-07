@@ -1,7 +1,7 @@
 // Copyright © 2017 Laurence Gonsalves
 //
-// This file is part of xenocom, a library which can be found at
-// http://github.com/xenomachina/xenocom
+// This file is part of kessel, a library which can be found at
+// http://github.com/xenomachina/kessel
 //
 // This library is free software; you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published by the
@@ -53,7 +53,7 @@ sealed class Chain<out T> {
 
         override fun iterator(): Iterator<Nothing> = emptySequence<Nothing>().iterator()
 
-        override inline fun <F> map(f: (Nothing) -> F): Empty = this
+        override fun <F> map(f: (Nothing) -> F): Empty = this
     }
 
     abstract fun <F> map(f: (T) -> F): Chain<F>
