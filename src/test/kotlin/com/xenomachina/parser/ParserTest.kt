@@ -51,7 +51,25 @@ class ParserTest : FunSpec({
                 .shouldEqual("Unexpected: Identifier(name=hello)")
     }
 
-    // TODO: add test where nullable is true
+    test("epsilon") {
+        // TODO
+    }
+
+    test("optional") {
+        // TODO
+    }
+
+    test("repeat") {
+        // TODO
+    }
+
+    test("repeat with separator") {
+        // TODO
+    }
+
+    test("nullable is true") {
+        // TODO: add test where nullable is true
+    }
 
     test("expression") {
 
