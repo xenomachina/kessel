@@ -18,7 +18,7 @@
 
 package com.xenomachina.parser
 
-import arrow.core.Either
+import arrow.data.Validated
 import com.xenomachina.chain.Chain
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.matchers.shouldThrow
@@ -34,8 +34,9 @@ sealed class Expr {
     data class Leaf(val value: MathToken.Value) : Expr()
 }
 
-fun <L, R> Either<L, R>.assertRight(): R = (this as Either.Right<L, R>).b
-fun <L, R> Either<L, R>.assertLeft(): L = (this as Either.Left<L, R>).a
+fun <L, R> Validated<L, R>.assertRight(): R = (this as Validated.Valid<R>).a
+fun <L, R> Validated<L, R>.assertLeft(): L = (this as Validated.Invalid<L>).e
+
 fun <T> Chain<T>.assertHead(): T = (this as Chain.NonEmpty<T>).head
 
 class ParserTest : FunSpec({
@@ -44,7 +45,7 @@ class ParserTest : FunSpec({
             seq(isA<MathToken.Value.IntLiteral>(), END_OF_INPUT) { integer, _ -> integer.value.toInt() }
         }.build()
 
-        parser.parse(tokens("5")) shouldEqual Either.Right(5)
+        parser.parse(tokens("5")) shouldEqual Validated.Valid(5)
 
         parser.parse(tokens("hello")).assertLeft().first().message
                 .shouldEqual("Unexpected: Identifier(name=hello)")

@@ -18,12 +18,12 @@
 
 package com.xenomachina.parser
 
-import arrow.core.Either
+import arrow.data.Validated
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.asChain
 import java.util.IdentityHashMap
 
-typealias ParseResult<T, R> = Either<List<ParseError<T>>, R>
+typealias ParseResult<T, R> = Validated<List<ParseError<T>>, R>
 
 class Parser<in T, out R>(private val start: Rule<T, R>) {
     val ruleProps = computeRuleProperties()
@@ -49,19 +49,19 @@ class Parser<in T, out R>(private val start: Rule<T, R>) {
         var bestConsumed = 0
         for (partial in start.call(0, breadcrumbs, chain)) {
             when (partial.value) {
-                is Either.Left -> {
+                is Validated.Invalid -> {
                     if (partial.consumed > bestConsumed) {
                         bestConsumed = partial.consumed
                         errors.clear()
                     }
                     if (partial.consumed == bestConsumed) {
-                        errors.add(partial.value.a)
+                        errors.add(partial.value.e)
                     }
                 }
-                is Either.Right -> return Either.Right(partial.value.b)
+                is Validated.Valid -> return Validated.Valid(partial.value.a)
             }
         }
-        return Either.Left(errors)
+        return Validated.Invalid(errors)
     }
 
     class Builder<in T, out R> (private val block: Builder.Companion.() -> Rule<T, R>) {

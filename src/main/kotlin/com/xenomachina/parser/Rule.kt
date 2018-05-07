@@ -18,8 +18,8 @@
 
 package com.xenomachina.parser
 
-import arrow.core.Either
 import arrow.core.Option
+import arrow.data.Validated
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.buildChain
 import com.xenomachina.chain.chainOf
@@ -102,7 +102,7 @@ class Epsilon<T> : Rule<T, Unit>() {
         breadcrumbs: Map<Rule<*, *>, Int>,
         chain: Chain<Q>
     ): Chain.NonEmpty<PartialResult<Q, Unit>> =
-            chainOf(PartialResult( consumed, Either.Right(Unit), chain))
+            chainOf(PartialResult( consumed, Validated.Valid(Unit), chain))
 }
 
 val END_OF_INPUT = object : Rule<Any?, Unit>() {
@@ -118,12 +118,12 @@ val END_OF_INPUT = object : Rule<Any?, Unit>() {
     ): Chain.NonEmpty<PartialResult<Q, Unit>> =
             when (chain) {
                 is Chain.Empty ->
-                    chainOf<PartialResult<Q, Unit>>(PartialResult(consumed, Either.Right(Unit), chain))
+                    chainOf<PartialResult<Q, Unit>>(PartialResult(consumed, Validated.Valid(Unit), chain))
 
                 is Chain.NonEmpty ->
                     chainOf(PartialResult(
                             consumed,
-                            Either.Left(ParseError(consumed, chain.maybeHead) { "Expected end of input, found: ${chain.head}" }),
+                            Validated.Invalid(ParseError(consumed, chain.maybeHead) { "Expected end of input, found: ${chain.head}" }),
                             chain))
             }
 }
@@ -143,19 +143,19 @@ class Terminal<T>(val predicate: (T) -> Boolean) : Rule<T, T>() {
                 is Chain.Empty ->
                     chainOf(PartialResult<Q, T>(
                             consumed,
-                            Either.Left(ParseError(consumed, chain.maybeHead) { "Unexpected end of input" }),
+                            Validated.Invalid(ParseError(consumed, chain.maybeHead) { "Unexpected end of input" }),
                             chain))
 
                 is Chain.NonEmpty ->
                     if (predicate(chain.head)) {
                         chainOf(PartialResult(
                                 consumed + 1,
-                                Either.Right(chain.head),
+                                Validated.Valid(chain.head),
                                 chain.tail))
                     } else {
                         chainOf(PartialResult(
                                 consumed,
-                                Either.Left(ParseError(consumed, chain.maybeHead) { "Unexpected: ${chain.head}" }),
+                                Validated.Invalid(ParseError(consumed, chain.maybeHead) { "Unexpected: ${chain.head}" }),
                                 chain))
                     }
             }
@@ -244,7 +244,7 @@ class Sequence2Rule<T, A, B, Z>(
                 forSequenceSubRule(ruleA, consumed, breadcrumbs, chain) { partialA, a ->
                     forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
                         yield(PartialResult(consumed,
-                                Either.Right(constructor(a, b)),
+                                Validated.Valid(constructor(a, b)),
                                 partialB.remaining))
                     }
                 }
@@ -268,7 +268,7 @@ class Sequence3Rule<T, A, B, C, Z>(
                     forSequenceSubRule(ruleB, partialA.consumed, breadcrumbs, partialA.remaining) { partialB, b ->
                         forSequenceSubRule(ruleC, partialB.consumed, breadcrumbs, partialB.remaining) { partialC, c ->
                             yield(PartialResult(consumed,
-                                    Either.Right(constructor(a, b, c)),
+                                    Validated.Valid(constructor(a, b, c)),
                                     partialC.remaining))
                         }
                     }
@@ -295,7 +295,7 @@ class Sequence4Rule<T, A, B, C, D, Z>(
                         forSequenceSubRule(ruleC, partialB.consumed, breadcrumbs, partialB.remaining) { partialC, c ->
                             forSequenceSubRule(ruleD, partialC.consumed, breadcrumbs, partialC.remaining) { partialD, d ->
                                 yield(PartialResult(
-                                        consumed, Either.Right(constructor(a, b, c, d)), partialD.remaining))
+                                        consumed, Validated.Valid(constructor(a, b, c, d)), partialD.remaining))
                             }
                         }
                     }
@@ -324,7 +324,7 @@ class Sequence5Rule<T, A, B, C, D, E, Z>(
                             forSequenceSubRule(ruleD, partialC.consumed, breadcrumbs, partialC.remaining) { partialD, d ->
                                 forSequenceSubRule(ruleE, partialD.consumed, breadcrumbs, partialD.remaining) { partialE, e ->
                                     yield(PartialResult(consumed,
-                                            Either.Right(constructor(a, b, c, d, e)),
+                                            Validated.Valid(constructor(a, b, c, d, e)),
                                             partialE.remaining))
                                 }
                             }
@@ -357,7 +357,7 @@ class Sequence6Rule<T, A, B, C, D, E, F, Z>(
                                 forSequenceSubRule(ruleE, partialD.consumed, breadcrumbs, partialD.remaining) { partialE, e ->
                                     forSequenceSubRule(ruleF, partialE.consumed, breadcrumbs, partialE.remaining) { partialF, f ->
                                         yield(PartialResult(consumed,
-                                                Either.Right(constructor(a, b, c, d, e, f)),
+                                                Validated.Valid(constructor(a, b, c, d, e, f)),
                                                 partialF.remaining))
                                     }
                                 }
@@ -393,7 +393,7 @@ class Sequence7Rule<T, A, B, C, D, E, F, G, Z>(
                                     forSequenceSubRule(ruleF, partialE.consumed, breadcrumbs, partialE.remaining) { partialF, f ->
                                         forSequenceSubRule(ruleG, partialF.consumed, breadcrumbs, partialF.remaining) { partialG, g ->
                                             yield(PartialResult(consumed,
-                                                    Either.Right(constructor(a, b, c, d, e, f, g)),
+                                                    Validated.Valid(constructor(a, b, c, d, e, f, g)),
                                                     partialG.remaining))
                                         }
                                     }
@@ -415,13 +415,13 @@ private suspend fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>.forSeq
 ) {
     for (partial in rule.call(consumed, breadcrumbs, chain)) {
         when (partial.value) {
-            is Either.Left -> {
+            is Validated.Invalid -> {
                 // TODO: This object should be identical to partial.value, but we have to rebuild it to get the types
                 // right. An unchecked cast would probably work here.
-                yield(PartialResult<Q, Z>(partial.consumed, Either.left(partial.value.a), partial.remaining))
+                yield(PartialResult<Q, Z>(partial.consumed, partial.value, partial.remaining))
             }
-            is Either.Right -> {
-                body(partial, partial.value.b)
+            is Validated.Valid -> {
+                body(partial, partial.value.a)
             }
         }
     }
@@ -435,7 +435,7 @@ private suspend fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>.forSeq
  */
 internal data class PartialResult<out T, out R>(
     val consumed: Int,
-    val value: Either<ParseError<T>, R>,
+    val value: Validated<ParseError<T>, R>,
     val remaining: Chain<T>
 ) {
     fun <F> map(f: (R) -> F) = PartialResult(consumed, value.map(f), remaining)
