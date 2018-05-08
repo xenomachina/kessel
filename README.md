@@ -125,9 +125,6 @@ val parser = Parser.Builder {
         val start = seq(expression, END_OF_INPUT) { expr, _ -> expr }
     }
 
-    multRule = grammar.multOp
-    exprRule = grammar.expression
-
     grammar.start
 }.build()
 ```
