@@ -56,7 +56,7 @@ val MATH_TOKENIZER = RegexTokenizer<MathToken>(
 )
 
 class TokenizerTest : FunSpec({
-    test("simple") {
+    test("math") {
 
         MATH_TOKENIZER.tokenize(CharOffsetTracker, "foo bar 123 baz789 45.6 45 .6 hello").shouldContain(
                 Positioned(0, MathToken.Value.Identifier("foo"), 3),
@@ -74,6 +74,38 @@ class TokenizerTest : FunSpec({
                 Positioned(27, MathToken.Value.FloatLiteral(.6), 29),
                 Positioned(29, MathToken.Space(" "), 30),
                 Positioned(30, MathToken.Value.Identifier("hello"), 35)
+        )
+    }
+
+    test("same length") {
+        val tokenizer = RegexTokenizer<String>(
+            Regex("reserved") to { _ -> "reserved" },
+            Regex("\\p{Alpha}[\\p{Alpha}0-9]+") to { _ -> "identifier" },
+            Regex("\\s+") to { _ -> "space" }
+        )
+
+        tokenizer.tokenize("foo bar baz").shouldContain(
+            "identifier", "space", "identifier", "space", "identifier"
+        )
+
+        tokenizer.tokenize("foo reserved baz").shouldContain(
+            "identifier", "space", "reserved", "space", "identifier"
+        )
+
+        tokenizer.tokenize("foo reserve baz").shouldContain(
+            "identifier", "space", "identifier", "space", "identifier"
+        )
+
+        tokenizer.tokenize("foo reservednot baz").shouldContain(
+            "identifier", "space", "identifier", "space", "identifier"
+        )
+
+        tokenizer.tokenize("foo notreservednot baz").shouldContain(
+            "identifier", "space", "identifier", "space", "identifier"
+        )
+
+        tokenizer.tokenize("foo notreserved baz").shouldContain(
+            "identifier", "space", "identifier", "space", "identifier"
         )
     }
 })

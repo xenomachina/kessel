@@ -67,7 +67,9 @@ val MATH_TOKENIZER = RegexTokenizer<MathToken>(
 )
 ```
 
-When multiple regexes match the input, the longest match wins.
+When multiple regexes match the input, the longest match wins. If there is a
+tie, the order in which the mappings were passed to `RegexTokenizer` is used as
+a tie-breaker: the earliest wins.
 
 To tokenize a `CharSequence`:
 

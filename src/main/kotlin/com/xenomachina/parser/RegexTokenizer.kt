@@ -60,7 +60,6 @@ class RegexTokenizer<T>(
      * position in the `CharSequence`.
      */
     override fun <P> tokenize(positionTracker: PositionTracker<P>, chars: CharSequence): Sequence<Positioned<P, T>> = buildSequence {
-        // TODO: add priorities?
         val length = chars.length
         val matchersToHandlers = patternsToHandlers.map { (pattern, f) -> pattern.matcher(chars) to f }
 
@@ -74,15 +73,9 @@ class RegexTokenizer<T>(
                 matcher.region(index, length)
                 if (matcher.lookingAt()) {
                     val matchLen = matcher.end() - matcher.start()
-                    // TODO: warn if matchLen == 0?
                     if (matchLen > bestLen) {
                         bestMatcherToHandler = matcherToHandler
                         bestLen = matchLen
-                    } else if (bestMatcherToHandler != null && matchLen == bestLen) {
-                        TODO(
-                            "Ambiguous tokenization: /${matcher.pattern().pattern()}/ and" +
-                            " /${bestMatcherToHandler.first.pattern().pattern()}/ both match $bestLen characters" +
-                            " at $pos")
                     }
                 }
             }
