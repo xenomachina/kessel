@@ -97,7 +97,6 @@ dokka {
 }
 
 task dokkaJavadoc(type: org.jetbrains.dokka.gradle.DokkaTask) {
-    outputFormat = "javadoc"
     outputDirectory = javadoc.destinationDir
 
     linkMapping {
