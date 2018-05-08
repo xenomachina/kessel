@@ -1,11 +1,11 @@
 # Kessel — Parser Combinators for Kotlin
 
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
-<!-- [![Maven Central](https://img.shields.io/maven-central/v/com.xenomachina/kessel.svg)](https://mvnrepository.com/artifact/com.xenomachina/kessel) -->
 [![Build Status](https://travis-ci.org/xenomachina/kessel.svg?branch=master)](https://travis-ci.org/xenomachina/kessel)
+[![License: LGPL 2.1](https://img.shields.io/badge/license-LGPL--2.1-blue.svg)](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html)
+<!-- [![Maven Central](https://img.shields.io/maven-central/v/com.xenomachina/kessel.svg)](https://mvnrepository.com/artifact/com.xenomachina/kessel) -->
 <!-- TODO: [![codebeat badge](https://codebeat.co/badges/902174e2-31be-4f9d-a4ba-40178b075d2a)](https://codebeat.co/projects/github-com-xenomachina-kessel-master)-->
 <!-- TODO: [![Javadocs](https://www.javadoc.io/badge/com.xenomachina/kessel.svg)](https://www.javadoc.io/doc/com.xenomachina/kessel) -->
-[![License: LGPL 2.1](https://img.shields.io/badge/license-LGPL--2.1-blue.svg)](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html)
 
 Kessel is a simple parser combinator library for Kotlin.
 
