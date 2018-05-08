@@ -64,7 +64,8 @@ val MATH_TOKENIZER = RegexTokenizer<MathToken>(
     Regex("[-+]") to { m -> MathToken.Operator.AddOp(m.group()) },
     Regex("\\(") to { _ -> MathToken.OpenParen },
     Regex("\\)") to { _ -> MathToken.CloseParen }
-)```
+)
+```
 
 When multiple regexes match the input, the longest match wins.
 
