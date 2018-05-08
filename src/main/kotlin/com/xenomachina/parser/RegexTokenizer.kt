@@ -48,6 +48,8 @@ interface Tokenizer<T> {
  *
  * A `RegexTokenizer` is stateless and reentrant. It is safe to reuse an instance of `RegexTokenizer`, or even to use
  * it on multiple sequences concurrently.
+ *
+ * When multiple regexes match the input, the longest match wins. Ties go to the earliest match.
  */
 class RegexTokenizer<T>(
     vararg regexToToken: Pair<Regex, TokenConstructor<T>>
