@@ -21,7 +21,7 @@ package com.xenomachina.parser
 import arrow.core.Either
 import arrow.core.None
 import arrow.core.Option
-import arrow.data.Validated
+import arrow.core.Validated
 import com.xenomachina.chain.Chain
 import io.kotlintest.matchers.shouldEqual
 import io.kotlintest.matchers.shouldThrow

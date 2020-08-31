@@ -19,11 +19,11 @@
 package com.xenomachina.parser
 
 import arrow.core.Either
+import arrow.core.NonEmptyList
 import arrow.core.None
 import arrow.core.Option
-import arrow.data.NonEmptyList
-import arrow.data.Validated
-import arrow.data.ValidatedNel
+import arrow.core.Validated
+import arrow.core.ValidatedNel
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.asChain
 import java.util.IdentityHashMap

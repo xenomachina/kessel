@@ -19,7 +19,7 @@
 package com.xenomachina.parser
 
 import arrow.core.Option
-import arrow.data.Validated
+import arrow.core.Validated
 import com.xenomachina.chain.Chain
 import com.xenomachina.chain.buildChain
 import com.xenomachina.chain.chainOf
