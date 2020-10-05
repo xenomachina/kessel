@@ -18,9 +18,6 @@
 
 package com.xenomachina.chain
 
-import kotlin.coroutines.experimental.SequenceBuilder
-import kotlin.coroutines.experimental.buildIterator
-
 /**
  * A `Chain` represents a sequence of values. Like `Sequence`, a `Chain` is lazy, but unlike `Sequence`, earlier
  * points along the chain can be remembered, which is useful for backtracking. A `Chain` is immutable, modulo laziness.
@@ -74,8 +71,8 @@ operator fun <T, R : Chain<T>> Chain.Empty.plus(that: () -> R): R =
 operator fun <T> Chain.NonEmpty<T>.plus(that: () -> Chain<T>): Chain.NonEmpty<T> =
         Chain.NonEmpty(head) { tail + that }
 
-fun <T> buildChain(builderAction: suspend SequenceBuilder<T>.() -> Unit): Chain<T> =
-        buildIterator(builderAction).asChain()
+fun <T> buildChain(builderAction: suspend SequenceScope<T>.() -> Unit): Chain<T> =
+        iterator(builderAction).asChain()
 
 class ChainIterator<out T> internal constructor (chain: Chain<T>) : Iterator<T> {
     // For some reason, Kotlin didn't like it when I just used "private set", so simulate it in this roundabout way...

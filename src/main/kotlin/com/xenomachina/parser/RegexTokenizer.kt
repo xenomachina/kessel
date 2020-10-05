@@ -20,7 +20,6 @@ package com.xenomachina.parser
 
 import java.util.regex.MatchResult
 import java.util.regex.Matcher
-import kotlin.coroutines.experimental.buildSequence
 
 /**
  * Constructs a token from a [MatchResult].
@@ -61,7 +60,7 @@ class RegexTokenizer<T>(
      * longest match is used to construct a token. It then advances to the next
      * position in the `CharSequence`.
      */
-    override fun <P> tokenize(positionTracker: PositionTracker<P>, chars: CharSequence): Sequence<Positioned<P, T>> = buildSequence {
+    override fun <P> tokenize(positionTracker: PositionTracker<P>, chars: CharSequence): Sequence<Positioned<P, T>> = sequence {
         val length = chars.length
         val matchersToHandlers = patternsToHandlers.map { (pattern, f) -> pattern.matcher(chars) to f }
 

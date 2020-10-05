@@ -39,8 +39,6 @@ apply plugin: 'org.jetbrains.dokka'
 apply plugin: 'signing'
 apply plugin: 'maven-publish'
 
-kotlin { experimental { coroutines 'enable' } }
-
 assert name == 'kessel'
 group 'com.xenomachina'
 description = "Parser combinators for Kotlin"
