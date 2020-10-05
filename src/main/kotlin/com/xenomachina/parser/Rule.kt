@@ -25,7 +25,6 @@ import com.xenomachina.chain.buildChain
 import com.xenomachina.chain.chainOf
 import com.xenomachina.chain.plus
 import java.util.IdentityHashMap
-import kotlin.coroutines.experimental.SequenceBuilder
 
 abstract class Rule<in T, out R> {
     internal abstract fun <Q : T> partialParse(
@@ -408,12 +407,12 @@ class Sequence7Rule<T, A, B, C, D, E, F, G, Z>(
             } as Chain.NonEmpty<PartialResult<Q, Z>>
 }
 
-private suspend inline fun <T, Z, Q : T, R> SequenceBuilder<PartialResult<Q, Z>>.forSequenceSubRule(
+private suspend inline fun <T, Z, Q : T, R> SequenceScope<PartialResult<Q, Z>>.forSequenceSubRule(
     rule: Rule<T, R>,
     consumed: Int,
     breadcrumbs: Map<Rule<*, *>, Int>,
     chain: Chain<Q>,
-    crossinline body: suspend SequenceBuilder<PartialResult<Q, Z>>.(PartialResult<Q, R>, R) -> Unit
+    crossinline body: suspend SequenceScope<PartialResult<Q, Z>>.(PartialResult<Q, R>, R) -> Unit
 ) {
     for (partial in rule.call(consumed, breadcrumbs, chain)) {
         when (partial.value) {
